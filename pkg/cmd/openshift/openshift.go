@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/cli"
 	"github.com/openshift/origin/pkg/cmd/experimental/buildchain"
 	"github.com/openshift/origin/pkg/cmd/experimental/bundlesecret"
+	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics"
 	"github.com/openshift/origin/pkg/cmd/experimental/generate"
 	"github.com/openshift/origin/pkg/cmd/experimental/policy"
 	"github.com/openshift/origin/pkg/cmd/experimental/project"
@@ -58,6 +59,8 @@ func CommandFor(basename string) *cobra.Command {
 		cmd = router.NewCommandTemplateRouter(basename)
 	case "openshift-deploy":
 		cmd = deployer.NewCommandDeployer(basename)
+	case "openshift-diagnostics":
+		cmd = diagnostics.NewCommand(basename, basename)
 	case "openshift-sti-build":
 		cmd = builder.NewCommandSTIBuilder(basename)
 	case "openshift-docker-build":
@@ -128,6 +131,7 @@ func newExperimentalCommand(parentName, name string) *cobra.Command {
 
 	subName := fmt.Sprintf("%s %s", parentName, name)
 	experimental.AddCommand(project.NewCmdNewProject(f, subName, "new-project"))
+	experimental.AddCommand(diagnostics.NewCommand("diagnostics", subName))
 	experimental.AddCommand(tokens.NewCmdTokens(f, subName, "tokens"))
 	experimental.AddCommand(policy.NewCommandPolicy(f, subName, "policy"))
 	experimental.AddCommand(generate.NewCmdGenerate(f, subName, "generate", os.Stdout))
