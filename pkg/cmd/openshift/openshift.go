@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/cli/cmd"
 	"github.com/openshift/origin/pkg/cmd/experimental/buildchain"
 	"github.com/openshift/origin/pkg/cmd/experimental/bundlesecret"
+	diagnostics "github.com/openshift/origin/pkg/cmd/experimental/diagnostics"
 	exipfailover "github.com/openshift/origin/pkg/cmd/experimental/ipfailover"
 	exregistry "github.com/openshift/origin/pkg/cmd/experimental/registry"
 	exrouter "github.com/openshift/origin/pkg/cmd/experimental/router"
@@ -55,6 +56,8 @@ func CommandFor(basename string) *cobra.Command {
 		cmd = router.NewCommandTemplateRouter(basename)
 	case "openshift-deploy":
 		cmd = deployer.NewCommandDeployer(basename)
+	case "openshift-diagnostics":
+		cmd = diagnostics.NewCommandDiagnostics(basename, basename, os.Stdout)
 	case "openshift-sti-build":
 		cmd = builder.NewCommandSTIBuilder(basename)
 	case "openshift-docker-build":
@@ -128,6 +131,7 @@ func newExperimentalCommand(name, fullName string) *cobra.Command {
 	out := os.Stdout
 
 	experimental.AddCommand(tokens.NewCmdTokens(tokens.TokenRecommendedCommandName, fullName+" "+tokens.TokenRecommendedCommandName, f, out))
+	experimental.AddCommand(diagnostics.NewCommandDiagnostics("diagnostics", fullName+" diagnostics", out))
 	experimental.AddCommand(exipfailover.NewCmdIPFailoverConfig(f, fullName, "ipfailover", os.Stdout))
 	experimental.AddCommand(exrouter.NewCmdRouter(f, fullName, "router", os.Stdout))
 	experimental.AddCommand(exregistry.NewCmdRegistry(f, fullName, "registry", os.Stdout))

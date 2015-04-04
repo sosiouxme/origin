@@ -9,6 +9,7 @@
 *.swp
 .vimrc
 .kubeconfig
+.openshiftconfig
 .vagrant-openshift.json*
 .DS_Store
 .idea

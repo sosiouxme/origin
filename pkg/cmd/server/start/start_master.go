@@ -13,6 +13,7 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	kerrors "github.com/GoogleCloudPlatform/kubernetes/pkg/api/errors"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/capabilities"
@@ -102,21 +103,26 @@ func NewCommandStartMaster(out io.Writer) (*cobra.Command, *MasterOptions) {
 	}
 	cmd.SetOutput(out)
 
-	options.MasterArgs = NewDefaultMasterArgs()
-
 	flags := cmd.Flags()
+	options.MasterArgs = MasterArgsAndFlags(flags)
 
 	flags.Var(options.MasterArgs.ConfigDir, "write-config", "Directory to write an initial config into.  After writing, exit without starting the server.")
 	flags.StringVar(&options.ConfigFile, "config", "", "Location of the master configuration file to run from. When running from a configuration file, all other command-line arguments are ignored.")
 	flags.BoolVar(&options.CreateCertificates, "create-certs", true, "Indicates whether missing certs should be created")
 
-	BindMasterArgs(options.MasterArgs, flags, "")
-	BindListenArg(options.MasterArgs.ListenArg, flags, "")
-	BindImageFormatArgs(options.MasterArgs.ImageFormatArgs, flags, "")
-	BindKubeConnectionArgs(options.MasterArgs.KubeConnectionArgs, flags, "")
-	BindNetworkArgs(options.MasterArgs.NetworkArgs, flags, "")
-
 	return cmd, options
+}
+
+func MasterArgsAndFlags(flags *pflag.FlagSet) *MasterArgs {
+	args := NewDefaultMasterArgs()
+
+	BindMasterArgs(args, flags, "")
+	BindListenArg(args.ListenArg, flags, "")
+	BindImageFormatArgs(args.ImageFormatArgs, flags, "")
+	BindKubeConnectionArgs(args.KubeConnectionArgs, flags, "")
+	BindNetworkArgs(args.NetworkArgs, flags, "")
+
+	return args
 }
 
 func (o MasterOptions) Validate(args []string) error {

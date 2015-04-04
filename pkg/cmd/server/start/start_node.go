@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/server/api/validation"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
 	"github.com/openshift/origin/pkg/cmd/util/docker"
+	"github.com/spf13/pflag"
 )
 
 type NodeOptions struct {
@@ -38,7 +39,7 @@ This command helps you launch an OpenShift node.  Running
 will start an OpenShift node that attempts to connect to the master on the provided IP. The
 node will run in the foreground until you terminate the process.`
 
-// NewCommandStartMaster provides a CLI handler for 'start' command
+// NewCommandStartNode provides a CLI handler for 'start' command
 func NewCommandStartNode(out io.Writer) (*cobra.Command, *NodeOptions) {
 	options := &NodeOptions{Output: cmdutil.Output{out}}
 
@@ -77,17 +78,20 @@ func NewCommandStartNode(out io.Writer) (*cobra.Command, *NodeOptions) {
 	cmd.SetOutput(out)
 
 	flags := cmd.Flags()
-
+	options.NodeArgs = NodeArgsAndFlags(flags)
 	flags.StringVar(&options.ConfigFile, "config", "", "Location of the node configuration file to run from. When running from a configuration file, all other command-line arguments are ignored.")
 
-	options.NodeArgs = NewDefaultNodeArgs()
-
-	BindNodeArgs(options.NodeArgs, flags, "")
-	BindListenArg(options.NodeArgs.ListenArg, flags, "")
-	BindImageFormatArgs(options.NodeArgs.ImageFormatArgs, flags, "")
-	BindKubeConnectionArgs(options.NodeArgs.KubeConnectionArgs, flags, "")
-
 	return cmd, options
+}
+
+func NodeArgsAndFlags(flags *pflag.FlagSet) *NodeArgs {
+	args := NewDefaultNodeArgs()
+
+	BindNodeArgs(args, flags, "")
+	BindListenArg(args.ListenArg, flags, "")
+	BindImageFormatArgs(args.ImageFormatArgs, flags, "")
+	BindKubeConnectionArgs(args.KubeConnectionArgs, flags, "")
+	return args
 }
 
 func (o NodeOptions) Validate(args []string) error {
