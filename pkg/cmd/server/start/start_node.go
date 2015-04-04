@@ -20,6 +20,7 @@ import (
 	configapilatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
 	"github.com/openshift/origin/pkg/cmd/server/api/validation"
 	"github.com/openshift/origin/pkg/cmd/util/docker"
+	"github.com/spf13/pflag"
 )
 
 type NodeOptions struct {
@@ -77,20 +78,22 @@ func NewCommandStartNode(out io.Writer) (*cobra.Command, *NodeOptions) {
 	}
 
 	flags := cmd.Flags()
-
+	options.NodeArgs = NodeArgsAndFlags(flags)
 	flags.StringVar(&options.ConfigFile, "config", "", "Location of the node configuration file to run from. When running from a configuration file, all other command-line arguments are ignored.")
-
-	options.NodeArgs = NewDefaultNodeArgs()
-
-	BindNodeArgs(options.NodeArgs, flags, "")
-	BindListenArg(options.NodeArgs.ListenArg, flags, "")
-	BindImageFormatArgs(options.NodeArgs.ImageFormatArgs, flags, "")
-	BindKubeConnectionArgs(options.NodeArgs.KubeConnectionArgs, flags, "")
-
 	// autocompletion hints
 	cmd.MarkFlagFilename("config", "yaml", "yml")
 
 	return cmd, options
+}
+
+func NodeArgsAndFlags(flags *pflag.FlagSet) *NodeArgs {
+	args := NewDefaultNodeArgs()
+
+	BindNodeArgs(args, flags, "")
+	BindListenArg(args.ListenArg, flags, "")
+	BindImageFormatArgs(args.ImageFormatArgs, flags, "")
+	BindKubeConnectionArgs(args.KubeConnectionArgs, flags, "")
+	return args
 }
 
 func (o NodeOptions) Validate(args []string) error {
