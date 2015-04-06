@@ -46,7 +46,7 @@ problem with getting node records. The error was:
 					}
 				}
 				//pretty.Println("Node conditions for "+node.Name, ready, schedulable)
-				if schedulable != nil && schedulable.Status == kapi.ConditionFull && (ready == nil || ready.Status != kapi.ConditionFull) {
+				if schedulable != nil && schedulable.Status == kapi.ConditionTrue && (ready == nil || ready.Status != kapi.ConditionTrue) {
 					msg := log.Msg{
 						"node": node.Name,
 						"tmpl": `

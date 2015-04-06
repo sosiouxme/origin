@@ -12,7 +12,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/cli"
 	"github.com/openshift/origin/pkg/cmd/experimental/buildchain"
 	"github.com/openshift/origin/pkg/cmd/experimental/bundlesecret"
-	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics"
+	diagnostics "github.com/openshift/origin/pkg/cmd/experimental/diagnostics"
 	"github.com/openshift/origin/pkg/cmd/experimental/generate"
 	"github.com/openshift/origin/pkg/cmd/experimental/policy"
 	"github.com/openshift/origin/pkg/cmd/experimental/project"
