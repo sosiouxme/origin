@@ -6,12 +6,26 @@ import (
 )
 
 type Flags struct {
-	Diagnostics    List
-	LogLevel       int
+	Diagnostics    List // named diagnostics to run
 	OpenshiftPath  string
 	OscPath        string
-	Format         string
-	OpenshiftFlags *flag.FlagSet
+	LogLevel       int
+	Format         string          // format of output - text/json/yaml
+	OpenshiftFlags *flag.FlagSet   // flags that were set on the command run
+	CanCheck       map[Target]bool // components to diagnose - master/node/client
+	MustCheck      Target
+	// for diagnosing "all", enable specifying config file locations
+	ClientConfigPath string
+	MasterConfigPath string
+	NodeConfigPath   string
+}
+
+func NewFlags(flags *flag.FlagSet) *Flags {
+	return &Flags{
+		OpenshiftFlags: flags,
+		Diagnostics:    make(List, 0),
+		CanCheck:       make(map[Target]bool),
+	}
 }
 
 type List []string
@@ -26,3 +40,9 @@ func (l *List) Type() string {
 func (l *List) String() string {
 	return strings.Join(*l, ",")
 }
+
+type Target string
+
+const ClientTarget Target = "client"
+const MasterTarget Target = "master"
+const NodeTarget Target = "node"

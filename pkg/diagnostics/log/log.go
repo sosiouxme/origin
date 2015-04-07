@@ -35,9 +35,9 @@ type Msg map[string]interface{}
 var (
 	ErrorLevel  = Level{0, "error", "ERROR: ", ct.Red, true}   // Something is definitely wrong
 	WarnLevel   = Level{1, "warn", "WARN:  ", ct.Yellow, true} // Likely to be an issue but maybe not
-	InfoLevel   = Level{2, "info", "Info:  ", ct.None, false}  // Just informational
 	NoticeLevel = Level{2, "note", "[Note] ", ct.White, false} // Introductory / summary
-	DebugLevel  = Level{3, "debug", "debug: ", ct.None, false} // Extra verbose
+	InfoLevel   = Level{3, "info", "Info:  ", ct.None, false}  // Just informational
+	DebugLevel  = Level{4, "debug", "debug: ", ct.None, false} // Extra verbose
 )
 
 var current Level = InfoLevel // default
@@ -51,6 +51,8 @@ func SetLevel(level int) {
 	case 1:
 		current = WarnLevel
 	case 2:
+		current = NoticeLevel
+	case 3:
 		current = InfoLevel
 	default:
 		current = DebugLevel

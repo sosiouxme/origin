@@ -6,10 +6,10 @@ import (
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd"
 	clientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/kubectl/resource"
-	"github.com/openshift/origin/pkg/diagnostics/log"
-	"github.com/openshift/origin/pkg/diagnostics/types"
 	"github.com/openshift/origin/pkg/cmd/cli/config"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
+	"github.com/openshift/origin/pkg/diagnostics/log"
+	"github.com/openshift/origin/pkg/diagnostics/types"
 	pkgapi "github.com/openshift/origin/pkg/project/api"
 	"io/ioutil"
 	"os"
@@ -28,13 +28,18 @@ as we go along, and try to be helpful.
 // -------------------------------------------------------------
 // Look for client config file in a number of possible locations
 func readClientConfigFiles(env *types.Environment) {
+	confFlagName := config.OpenShiftConfigFlagName
+	confFlag := env.Flags.ClientConfigPath // from openshift-diagnostics --config
+	if flag := env.Flags.OpenshiftFlags.Lookup(confFlagName); flag != nil {
+		confFlag = flag.Value.String() // from openshift-diagnostics client --config
+	}
+	//confFlag := []string{env.Flags.OpenshiftFlags.Lookup(confFlagName).Value.String()}
 	var found bool
-	confFlag := []string{env.Flags.OpenshiftFlags.Lookup(config.OpenShiftConfigFlagName).Value.String()}
-	for index, path := range append(confFlag, config.FullClientConfigFilePriority()...) {
+	for index, path := range append([]string{confFlag}, config.FullClientConfigFilePriority()...) {
 		errmsg := ""
 		switch index {
 		case 0:
-			errmsg = fmt.Sprintf("--config specified that client config should be at %s\n", path)
+			errmsg = fmt.Sprintf("--"+confFlagName+" specified that client config should be at %s\n", path)
 		case 1:
 			errmsg = fmt.Sprintf("$OPENSHIFTCONFIG specified that client config should be at %s\n", path)
 		}
@@ -44,29 +49,52 @@ func readClientConfigFiles(env *types.Environment) {
 			env.ClientConfigRaw = rawConfig
 		}
 	}
-	if !found {
-		log.Warn("discNoCC", "No client config file read; default OpenShift config will be used, which is not likely what you want.")
-		adminPaths := []string{
-			"/var/lib/openshift/openshift.certificates.d/admin/.kubeconfig", // enterprise
-			"/openshift.certificates.d/admin/.kubeconfig",                   // origin systemd
-			"./openshift.certificates.d/admin/.kubeconfig",                  // origin binary
+	if found {
+		if confFlag != "" && confFlag != env.ClientConfigPath {
+			// found config but not where --config said, so don't continue discovery
+			log.Errorf("discCCnotFlag", `
+The client configuration file was not found where the --%s flag indicated:
+  %s
+A config file was found at the following location:
+  %s
+If you wish to use this file for client configuration, you can specify it
+with the --%[1]s flag, or just not specify the flag.
+			`, confFlagName, confFlag, env.ClientConfigPath)
+		} else {
+			// happy path, client config found as expected
+			env.WillCheck[types.ClientTarget] = true
 		}
-		adminWarningF := `
-Client config was not available where expected; however, one exists at
+	} else { // not found, decide what to do
+		if confFlag != "" { // user expected conf file at specific place
+			log.Errorf("discNoCC", "The client configuration file was not found where --%s='%s' indicated.", confFlagName, confFlag)
+		} else if env.Flags.MustCheck != types.ClientTarget {
+			log.Info("discSkipCLI", "No client config file found; client diagnostics will not be performed.")
+		} else {
+			// user specifically wants to troubleshoot client, but not with a conf file
+			log.Warn("discNoCCfile", "No client config file read; OpenShift client diagnostics will use flags and default configuration.")
+			env.WillCheck[types.ClientTarget] = true
+			adminPaths := []string{
+				"/var/lib/openshift/openshift.certificates.d/admin/.kubeconfig", // enterprise
+				"/openshift.certificates.d/admin/.kubeconfig",                   // origin systemd
+				"./openshift.certificates.d/admin/.kubeconfig",                  // origin binary
+			}
+			adminWarningF := `
+No client config file was available; however, one exists at
   %s
 which is a standard location where the master generates it.
-If this is what you want, you should copy it to a standard location
+If this is what you want to use, you should copy it to a standard location
 (~/.config/openshift/.config, or the current directory), or you can set the
 environment variable OPENSHIFTCONFIG in your ~/.bash_profile:
   export OPENSHIFTCONFIG=%[1]s
 If this is not what you want, you should obtain a config file and
 place it in a standard location.
 `
-		// look for it in auto-generated locations when not found properly
-		for _, path := range adminPaths {
-			if conf := openConfigFile(path, ""); conf != nil {
-				log.Warnf("discCCautoPath", adminWarningF, path)
-				break
+			// look for it in auto-generated locations when not found properly
+			for _, path := range adminPaths {
+				if conf := openConfigFile(path, ""); conf != nil {
+					log.Warnf("discCCautoPath", adminWarningF, path)
+					break
+				}
 			}
 		}
 	}

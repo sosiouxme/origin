@@ -2,6 +2,7 @@ package discovery // client
 
 import (
 	"fmt"
+	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 	"os"
@@ -13,7 +14,13 @@ import (
 
 // ----------------------------------------------------------
 // Look for 'osc' and 'openshift' executables
-func clientDiscovery(env *types.Environment) (err error) {
+func clientDiscovery(env *types.Environment, f *osclientcmd.Factory) (err error) {
+	if config, err := f.OpenShiftClientConfig.RawConfig(); err != nil {
+		log.Errorf("discCCstart", "Could not read client config: (%T) %[1]v", err)
+	} else {
+		env.OsConfig = &config
+		env.FactoryForContext[config.CurrentContext] = f
+	}
 	log.Debug("discSearchExec", "Searching for executables in path:\n  "+strings.Join(filepath.SplitList(os.Getenv("PATH")), "\n  ")) //TODO for non-Linux OS
 	env.OscPath = findExecAndLog("osc", env, env.Flags.OscPath)
 	if env.OscPath != "" {

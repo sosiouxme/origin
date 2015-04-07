@@ -12,6 +12,7 @@ type Environment struct {
 	HasSystemd   bool
 	HasBash      bool
 	SystemdUnits map[string]SystemdUnit // list of those present on system
+	WillCheck    map[Target]bool        // diagnose master,node,client
 
 	OscPath             string
 	OscVersion          Version
@@ -36,6 +37,7 @@ func NewEnvironment(fl *Flags) *Environment {
 	return &Environment{
 		Flags:             fl,
 		SystemdUnits:      make(map[string]SystemdUnit),
+		WillCheck:         make(map[Target]bool),
 		FactoryForContext: make(map[string]*osclientcmd.Factory),
 		AccessForContext:  make(map[string]*ContextAccess),
 	}
