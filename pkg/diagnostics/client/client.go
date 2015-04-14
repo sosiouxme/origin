@@ -5,6 +5,7 @@ import (
 	kapi "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	clientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
 	//"github.com/kr/pretty"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
@@ -22,7 +23,7 @@ var Diagnostics = map[string]types.Diagnostic{
 			var err error
 			var nodes *kapi.NodeList
 			if _, kclient, err := env.ClusterAdminFactory.Clients(); err == nil {
-				nodes, err = kclient.Nodes().List()
+				nodes, err = kclient.Nodes().List(labels.LabelSelector{})
 			}
 			if err != nil {
 				log.Errorf("clGetNodesFailed", `
@@ -36,25 +37,28 @@ problem with getting node records. The error was:
 			}
 			for _, node := range nodes.Items {
 				//pretty.Println("Node record:", node)
-				var ready, schedulable *kapi.NodeCondition
+				var ready *kapi.NodeCondition
 				for i, condition := range node.Status.Conditions {
 					switch condition.Type {
+					// currently only one... used to be more, may be again
 					case kapi.NodeReady:
 						ready = &node.Status.Conditions[i]
-					case kapi.NodeSchedulable:
-						schedulable = &node.Status.Conditions[i]
 					}
 				}
 				//pretty.Println("Node conditions for "+node.Name, ready, schedulable)
-				if schedulable != nil && schedulable.Status == kapi.ConditionTrue && (ready == nil || ready.Status != kapi.ConditionTrue) {
+				if ready == nil || ready.Status != kapi.ConditionTrue {
 					msg := log.Msg{
 						"node": node.Name,
 						"tmpl": `
-Node {{.node}} is allowed to have pods scheduled but is not ready to
-run them. Ready status is {{.status}} because "{{.reason}}"
+Node {{.node}} is defined but is not marked as ready.
+Ready status is {{.status}} because "{{.reason}}"
+If the node is not intentionally disabled, check that the master can
+reach the node hostname for a health check and the node is checking in
+to the master with the same hostname.
 
-While in this state, pods could be scheduled to deploy on the node but
-will not be deployed until the node achieves readiness.`,
+While in this state, pods should not be scheduled to deploy on the node,
+and any existing scheduled pods will be considered failed and removed.
+ `,
 					}
 					if ready == nil {
 						msg["status"] = "None"
@@ -63,7 +67,7 @@ will not be deployed until the node achieves readiness.`,
 						msg["status"] = ready.Status
 						msg["reason"] = ready.Reason
 					}
-					log.Errorm("clNodeBroken", msg)
+					log.Warnm("clNodeBroken", msg)
 				}
 			}
 		},
