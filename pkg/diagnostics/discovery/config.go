@@ -5,12 +5,12 @@ import (
 	kapi "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd"
 	clientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/kubectl/resource"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 	"github.com/openshift/origin/pkg/cmd/cli/config"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
-	pkgapi "github.com/openshift/origin/pkg/project/api"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -190,14 +190,11 @@ func getContextAccess(factory *osclientcmd.Factory, ctxName string, ctx clientcm
 		msg["user"] = ctx.AuthInfo
 	}
 	// actually go and request project list from the server
-	mapper, typer := factory.Object()
-	obj, err := resource.NewBuilder(mapper, typer, factory.ClientMapperForCommand(nil)).
-		ResourceTypeOrNameArgs(true, "projects").
-		Latest().
-		Do().
-		Object()
-	if err == nil { // success!
-		list := obj.(*pkgapi.ProjectList).Items
+	if osclient, _, err := factory.Clients(); err != nil {
+		log.Errorf("discCCctxClients", "Failed to create client during discovery with error:\n(%T) %[1]v\nThis is probably an OpenShift bug.", err)
+		return nil
+	} else if projects, err := osclient.Projects().List(labels.Everything(), fields.Everything()); err == nil { // success!
+		list := projects.Items
 		if len(list) == 0 {
 			msg["tmpl"] = msgText + "Successfully requested project list, but it is empty, so user has no access to anything."
 			msg["projects"] = make([]string, 0)
