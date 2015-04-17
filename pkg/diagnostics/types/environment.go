@@ -2,6 +2,8 @@ package types
 
 import (
 	kclientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
+	mconfigapi "github.com/openshift/origin/pkg/cmd/server/api"
+	mstart "github.com/openshift/origin/pkg/cmd/server/start"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 )
 
@@ -11,14 +13,17 @@ type Environment struct {
 	OS           string // "linux / windows / darwin" http://golang.org/pkg/runtime/#GOOS
 	HasSystemd   bool
 	HasBash      bool
-	SystemdUnits map[string]SystemdUnit // list of those present on system
-	WillCheck    map[Target]bool        // diagnose master,node,client
+	SystemdUnits map[string]SystemdUnit // list of relevant units present on system
+	Flags        *Flags                 // command flags deposit results here; also has command flag objects
+	WillCheck    map[Target]bool        // discover whether to diagnose master,node,client
 
-	OscPath             string
-	OscVersion          Version
-	OpenshiftPath       string
-	OpenshiftVersion    Version
-	Flags               *Flags                          // command flags deposit results here; also has command flag objects
+	// outcome from looking for executables
+	OscPath          string
+	OscVersion       Version
+	OpenshiftPath    string
+	OpenshiftVersion Version
+
+	// saved results from client discovery
 	ClientConfigPath    string                          // first client config file found, if any
 	ClientConfigRaw     *kclientcmdapi.Config           // available to analyze ^^
 	OsConfig            *kclientcmdapi.Config           // actual merged client configuration
@@ -26,6 +31,9 @@ type Environment struct {
 	AccessForContext    map[string]*ContextAccess       // one for each context that has access to anything
 	ClusterAdminFactory *osclientcmd.Factory            // factory we will use for cluster-admin access (could easily be nil)
 
+	// saved results from master discovery
+	MasterOptions *mstart.MasterOptions    // user-specified flags or config file
+	MasterConfig  *mconfigapi.MasterConfig // actual config determined from flags/file
 }
 
 type ContextAccess struct {

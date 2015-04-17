@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/openshift/origin/pkg/cmd/server/start"
 	flag "github.com/spf13/pflag"
 	"strings"
 )
@@ -18,6 +19,8 @@ type Flags struct {
 	ClientConfigPath string
 	MasterConfigPath string
 	NodeConfigPath   string
+	// the master has its own container for flags/options
+	MasterOptions *start.MasterOptions
 }
 
 func NewFlags(flags *flag.FlagSet) *Flags {

@@ -11,6 +11,7 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	kerrors "github.com/GoogleCloudPlatform/kubernetes/pkg/api/errors"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/capabilities"
@@ -105,18 +106,23 @@ func NewCommandStartMaster() (*cobra.Command, *MasterOptions) {
 	flags.BoolVar(&options.WriteConfigOnly, "write-config", false, "Indicates that the command should build the configuration from command-line arguments, write it to the location specified by --config, and exit.")
 	flags.StringVar(&options.ConfigFile, "config", "", "Location of the master configuration file to run from, or write to (when used with --write-config). When running from a configuration file, all other command-line arguments are ignored.")
 
-	options.MasterArgs = NewDefaultMasterArgs()
-	// make sure that KubeConnectionArgs and MasterArgs use the same CertArgs for this command
-	options.MasterArgs.KubeConnectionArgs.CertArgs = options.MasterArgs.CertArgs
-
-	BindMasterArgs(options.MasterArgs, flags, "")
-	BindListenArg(options.MasterArgs.ListenArg, flags, "")
-	BindPolicyArgs(options.MasterArgs.PolicyArgs, flags, "")
-	BindImageFormatArgs(options.MasterArgs.ImageFormatArgs, flags, "")
-	BindKubeConnectionArgs(options.MasterArgs.KubeConnectionArgs, flags, "")
-	BindCertArgs(options.MasterArgs.CertArgs, flags, "")
+	options.MasterArgs = MasterArgsAndFlags(flags)
 
 	return cmd, options
+}
+
+func MasterArgsAndFlags(flags *pflag.FlagSet) *MasterArgs {
+	args := NewDefaultMasterArgs()
+	// make sure that KubeConnectionArgs and MasterArgs use the same CertArgs for this command
+	args.KubeConnectionArgs.CertArgs = args.CertArgs
+
+	BindMasterArgs(args, flags, "")
+	BindListenArg(args.ListenArg, flags, "")
+	BindPolicyArgs(args.PolicyArgs, flags, "")
+	BindImageFormatArgs(args.ImageFormatArgs, flags, "")
+	BindKubeConnectionArgs(args.KubeConnectionArgs, flags, "")
+	BindCertArgs(args.CertArgs, flags, "")
+	return args
 }
 
 func (o MasterOptions) Validate(args []string) error {

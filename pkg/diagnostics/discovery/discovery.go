@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"github.com/openshift/origin/pkg/cmd/server/start"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
@@ -16,6 +17,15 @@ func Run(fl *types.Flags, f *osclientcmd.Factory) (env *types.Environment, ok bo
 	operatingSystemDiscovery(env)
 	if fl.CanCheck[types.MasterTarget] || fl.CanCheck[types.NodeTarget] {
 		discoverSystemd(env)
+	}
+	if fl.CanCheck[types.MasterTarget] {
+		if fl.MasterOptions == nil {
+			fl.MasterOptions = &start.MasterOptions{ConfigFile: fl.MasterConfigPath}
+			// no MasterArgs signals it has to be a master config file or nothing.
+		} else if fl.MasterConfigPath != "" {
+			fl.MasterOptions.ConfigFile = fl.MasterConfigPath
+		}
+		masterDiscovery(env, fl.MasterOptions)
 	}
 	if fl.CanCheck[types.ClientTarget] {
 		clientDiscovery(env, f)

@@ -332,11 +332,8 @@ so the OpenShift node will not work on this host until it is resolved.`,
 }
 
 var systemdRelevant = func(env *types.Environment) (skip bool, reason string) {
-	//return false, "" // for testing...
 	if !env.HasSystemd {
 		return true, "systemd is not present on this host"
-	} else if env.OpenshiftPath == "" {
-		return true, "`openshift` binary is not in the path on this host; we assume host is not a server"
 	}
 	return false, ""
 }

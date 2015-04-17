@@ -4,6 +4,7 @@ import (
 	"fmt"
 	//"github.com/openshift/origin/pkg/cmd/cli/cmd"
 	"github.com/openshift/origin/pkg/cmd/cli/config"
+	"github.com/openshift/origin/pkg/cmd/server/start"
 	"github.com/openshift/origin/pkg/cmd/templates"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 	"github.com/openshift/origin/pkg/diagnostics/log"
@@ -36,9 +37,20 @@ func NewCommand(name string) *cobra.Command {
 	cmd.Flags().StringVar(&diagFlags.MasterConfigPath, "master-config", "", "Path to the config file to use for master configuration.")
 	cmd.Flags().StringVar(&diagFlags.NodeConfigPath, "node-config", "", "Path to the config file to use for node configuration.")
 
+	/* There is some weirdness with diagnostics flag usage. The same flags
+	   object is shared between the (implied) "all" and the client commands.
+	   We actually use the client factory built in the "client" subcommand for
+	   discovery in either case, and that adds flags to the subcommand which
+	   need a target for putting results in; we do not want it to add flags
+	   to the "all" command, but those flags have to exist somewhere for the
+	   factory to set values and look them up later (even though on the "all"
+	   command they will not exist, the only option is a client config file).
+	   So the client flags object is reused for the "all" command.
+	*/
+
 	ccmd, factory := NewClientCommand(name+" client", diagFlags)
 	cmd.AddCommand(ccmd)
-	cmd.AddCommand(NewMasterCommand(name+" master", diagFlags))
+	cmd.AddCommand(NewMasterCommand(name + " master"))
 	cmd.AddCommand(NewNodeCommand(name+" node", diagFlags))
 	cmd.AddCommand(NewOptionsCommand())
 
@@ -47,10 +59,6 @@ func NewCommand(name string) *cobra.Command {
 		diagFlags.CanCheck[types.ClientTarget] = true
 		diagFlags.CanCheck[types.MasterTarget] = true
 		diagFlags.CanCheck[types.NodeTarget] = true
-		// some weirdness, we actually use the factory from the "client"
-		// subcommand for discovery; we do not want it to add flags
-		// to this command, but those flags have to exist somewhere for the
-		// factory to look at them.
 		run.Diagnose(diagFlags, factory)
 	}
 	return cmd
@@ -74,7 +82,7 @@ func runInit(cmd *cobra.Command, diagFlags *types.Flags) {
 func NewClientCommand(fullName string, diagFlags *types.Flags) (*cobra.Command, *osclientcmd.Factory) {
 	cmd := &cobra.Command{
 		Use:   "client",
-		Short: "Troubleshoot an OpenShift v3 client.",
+		Short: "Troubleshoot using the OpenShift v3 client.",
 		Long:  fmt.Sprintf(longDescription, fullName),
 	}
 
@@ -95,19 +103,25 @@ func NewClientCommand(fullName string, diagFlags *types.Flags) (*cobra.Command, 
 	return cmd, factory
 }
 
-func NewMasterCommand(fullName string, diagFlags *types.Flags) *cobra.Command {
+func NewMasterCommand(fullName string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "master",
-		Short: "Troubleshoot an OpenShift v3 master.",
+		Short: "Troubleshoot a running OpenShift v3 master.",
 		Long:  fmt.Sprintf(longDescription, fullName),
-		Run: func(c *cobra.Command, args []string) {
-			runInit(c, diagFlags)
-			diagFlags.CanCheck[types.MasterTarget] = true
-			diagFlags.MustCheck = types.MasterTarget
-			run.Diagnose(diagFlags, nil)
-		},
 	}
+	diagFlags := types.NewFlags(cmd.PersistentFlags())
+	cmd.Run = func(c *cobra.Command, args []string) {
+		runInit(c, diagFlags)
+		diagFlags.CanCheck[types.MasterTarget] = true
+		diagFlags.MustCheck = types.MasterTarget
+		run.Diagnose(diagFlags, nil)
+	}
+
 	addFlags(cmd, diagFlags)
+	diagFlags.MasterOptions = &start.MasterOptions{}
+	cmd.Flags().StringVar(&diagFlags.MasterOptions.ConfigFile, "config", "", "Location of the master configuration file to run from. When running from a configuration file, all other command-line arguments are ignored.")
+	diagFlags.MasterOptions.MasterArgs = start.MasterArgsAndFlags(cmd.Flags())
+
 	cmd.AddCommand(NewOptionsCommand())
 	return cmd
 }
