@@ -14,22 +14,42 @@ import (
 	"os"
 )
 
-const longDescription = `
+const longAllDescription = `
 OpenShift Diagnostics
 
-This utility helps you understand and troubleshoot OpenShift v3.
+This command helps you understand and troubleshoot OpenShift. It is
+intended to be run from the same context as an OpenShift client or running
+master / node in order to troubleshoot from the perspective of each.
 
     $ %s
 
-Note: This is an alpha version of diagnostics and will change significantly.
-Note: 'options' and global flags are ignored here but can be used with subcommands.
+If run without flags or subcommands, it will check for config files for
+client, master, and node, and if found, use them for troubleshooting
+those components. If master/node config files are not found, the tool
+assumes they are not present and does diagnostics only as a client.
+
+You may also specify config files explicitly with flags below, in which
+case you will receive an error if they are not found or invalid.
+
+    $ %[1]s --master-config=/etc/openshift/master.yaml
+
+Subcommands may be used to scope the troubleshooting to a particular
+component and are not limited to using config files; you can and should
+use the same flags that are actually set on the command line for that
+component to configure the diagnostic.
+
+    $ %[1]s node --master=https://master.openshift.example.com:8443 --cert-dir=...
+
+NOTE: This is an alpha version of diagnostics and will change significantly.
+NOTE: Global flags (from the 'options' subcommand) are ignored here but
+can be used with subcommands.
 `
 
 func NewCommand(name string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diagnostics",
 		Short: "This utility helps you understand and troubleshoot OpenShift v3.",
-		Long:  fmt.Sprintf(longDescription, name),
+		Long:  fmt.Sprintf(longAllDescription, name),
 	}
 	diagFlags := types.NewFlags(cmd.PersistentFlags())
 	addFlags(cmd, diagFlags)
@@ -44,7 +64,7 @@ func NewCommand(name string) *cobra.Command {
 	   need a target for putting results in; we do not want it to add flags
 	   to the "all" command, but those flags have to exist somewhere for the
 	   factory to set values and look them up later (even though on the "all"
-	   command they will not exist, the only option is a client config file).
+	   command they will not exist; the only option is a client config file).
 	   So the client flags object is reused for the "all" command.
 	*/
 
@@ -79,11 +99,21 @@ func runInit(cmd *cobra.Command, diagFlags *types.Flags) {
 	log.SetLogFormat(diagFlags.Format) // note, ignore error; if format unknown, just do text
 }
 
+const longClientDescription = `
+OpenShift Diagnostics
+
+This command helps you understand and troubleshoot OpenShift as a user. It is
+intended to be run from the same context as an OpenShift client
+("openshift cli" or "osc") and with the same configuration options.
+
+    $ %s
+`
+
 func NewClientCommand(fullName string, diagFlags *types.Flags) (*cobra.Command, *osclientcmd.Factory) {
 	cmd := &cobra.Command{
 		Use:   "client",
 		Short: "Troubleshoot using the OpenShift v3 client.",
-		Long:  fmt.Sprintf(longDescription, fullName),
+		Long:  fmt.Sprintf(longClientDescription, fullName),
 	}
 
 	// Add some diagnostics flags to be shown separately from client flags
@@ -103,11 +133,22 @@ func NewClientCommand(fullName string, diagFlags *types.Flags) (*cobra.Command, 
 	return cmd, factory
 }
 
+const longMasterDescription = `
+OpenShift Diagnostics
+
+This command helps you understand and troubleshoot a running OpenShift
+master. It is intended to be run from the same context as the master
+(where "openshift start" or "openshift start master" is run, possibly from
+systemd or inside a container) and with the same configuration options.
+
+    $ %s
+`
+
 func NewMasterCommand(fullName string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "master",
 		Short: "Troubleshoot a running OpenShift v3 master.",
-		Long:  fmt.Sprintf(longDescription, fullName),
+		Long:  fmt.Sprintf(longMasterDescription, fullName),
 	}
 	diagFlags := types.NewFlags(cmd.PersistentFlags())
 	cmd.Run = func(c *cobra.Command, args []string) {
@@ -126,11 +167,22 @@ func NewMasterCommand(fullName string) *cobra.Command {
 	return cmd
 }
 
+const longNodeDescription = `
+OpenShift Diagnostics
+
+This command helps you understand and troubleshoot a running OpenShift
+node. It is intended to be run from the same context as the node
+(where "openshift start" or "openshift start node" is run, possibly from
+systemd or inside a container) and with the same configuration options.
+
+    $ %s
+`
+
 func NewNodeCommand(fullName string, diagFlags *types.Flags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "node",
 		Short: "Troubleshoot an OpenShift v3 node.",
-		Long:  fmt.Sprintf(longDescription, fullName),
+		Long:  fmt.Sprintf(longNodeDescription, fullName),
 		Run: func(c *cobra.Command, args []string) {
 			runInit(c, diagFlags)
 			diagFlags.CanCheck[types.NodeTarget] = true
