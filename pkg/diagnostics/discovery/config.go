@@ -35,7 +35,7 @@ func readClientConfigFiles(env *types.Environment) {
 	}
 	//confFlag := []string{env.Flags.OpenshiftFlags.Lookup(confFlagName).Value.String()}
 	var found bool
-	for index, path := range append([]string{confFlag}, config.FullClientConfigFilePriority()...) {
+	for index, path := range append([]string{confFlag}, config.OpenShiftClientConfigFilePriority()...) {
 		errmsg := ""
 		switch index {
 		case 0:
