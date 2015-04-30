@@ -21,6 +21,8 @@ type Flags struct {
 	NodeConfigPath   string
 	// the master has its own container for flags/options
 	MasterOptions *start.MasterOptions
+	// the node has its own container for flags/options
+	NodeOptions *start.NodeOptions
 }
 
 func NewFlags(flags *flag.FlagSet) *Flags {

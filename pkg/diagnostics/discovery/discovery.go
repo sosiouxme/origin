@@ -27,6 +27,15 @@ func Run(fl *types.Flags, f *osclientcmd.Factory) (env *types.Environment, ok bo
 		}
 		masterDiscovery(env, fl.MasterOptions)
 	}
+	if fl.CanCheck[types.NodeTarget] {
+		if fl.NodeOptions == nil {
+			fl.NodeOptions = &start.NodeOptions{ConfigFile: fl.NodeConfigPath}
+			// no NodeArgs signals it has to be a node config file or nothing.
+		} else if fl.NodeConfigPath != "" {
+			fl.NodeOptions.ConfigFile = fl.NodeConfigPath
+		}
+		nodeDiscovery(env, fl.NodeOptions)
+	}
 	if fl.CanCheck[types.ClientTarget] {
 		clientDiscovery(env, f)
 		readClientConfigFiles(env) // so user knows where config is coming from (or not)

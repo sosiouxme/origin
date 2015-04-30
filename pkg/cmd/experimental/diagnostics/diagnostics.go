@@ -191,6 +191,8 @@ func NewNodeCommand(fullName string, diagFlags *types.Flags) *cobra.Command {
 		},
 	}
 	addFlags(cmd, diagFlags)
+	cmd.Flags().StringVar(&diagFlags.NodeOptions.ConfigFile, "config", "", "Location of the node configuration file to run from. When running from a configuration file, all other command-line arguments are ignored.")
+	diagFlags.NodeOptions.NodeArgs = start.NodeArgsAndFlags(cmd.Flags())
 	cmd.AddCommand(NewOptionsCommand())
 	return cmd
 }

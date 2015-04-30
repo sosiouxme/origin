@@ -41,7 +41,7 @@ will start an OpenShift node that attempts to connect to the master on the provi
 node will run in the foreground until you terminate the process.
 `
 
-// NewCommandStartMaster provides a CLI handler for 'start' command
+// NewCommandStartNode provides a CLI handler for 'start' command
 func NewCommandStartNode() (*cobra.Command, *NodeOptions) {
 	options := &NodeOptions{}
 

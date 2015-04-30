@@ -26,6 +26,9 @@ func masterDiscovery(env *types.Environment, options *start.MasterOptions) {
 			tryMasterConfig(env, options, true)
 		}
 	}
+	if !env.WillCheck[types.MasterTarget] {
+		log.Notice("discMCnone", "No master config found; master diagnostics will not be performed.")
+	}
 }
 
 func tryMasterConfig(env *types.Environment, options *start.MasterOptions, errOnFail bool) bool {

@@ -34,6 +34,9 @@ type Environment struct {
 	// saved results from master discovery
 	MasterOptions *mstart.MasterOptions    // user-specified flags or config file
 	MasterConfig  *mconfigapi.MasterConfig // actual config determined from flags/file
+	// saved results from node discovery
+	NodeOptions *mstart.NodeOptions    // user-specified flags or config file
+	NodeConfig  *mconfigapi.NodeConfig // actual config determined from flags/file
 }
 
 type ContextAccess struct {
