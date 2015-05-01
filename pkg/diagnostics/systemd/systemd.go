@@ -383,17 +383,12 @@ The software-defined network (SDN) enables networking between
 containers on different nodes. If it is not running, containers
 on different nodes will not be able to connect to each other.
 openshift-sdn-master is required to provision the SDN subnets.`)
-			unitRequiresUnit(u["openshift-sdn-node"], u["openvswitch"], `
-The software-defined network (SDN) enables networking between
-containers on different nodes. Containers will not be able to
-connect to each other without the openvswitch service carrying
-this traffic.`)
 			unitRequiresUnit(u["openshift"], u["docker"], `OpenShift nodes use Docker to run containers.`)
 			unitRequiresUnit(u["openshift"], u["iptables"], `
 iptables is used by OpenShift nodes for container networking.
 Connections to a container will fail without it.`)
-			// sdn-node's dependency on node is a special case.
-			// We do not need to enable node because sdn-note starts it for us.
+			// sdn-node's dependency on node and openvswitch is a special case.
+			// We do not need to enable node/ovs because sdn-node starts them for us.
 			if u["openshift-sdn-node"].Active && !u["openshift-node"].Active {
 				log.Error("sdUnitSDNreqSN", `
 systemd unit openshift-sdn-node is running but openshift-node is not.
@@ -408,6 +403,26 @@ To ensure it is not repeatedly failing to run, check the status and logs with:
 
   # systemctl status openshift-node
   # journalctl -ru openshift-node `)
+			}
+			if u["openshift-sdn-node"].Active && !u["openvswitch"].Active {
+				log.Error("sdUnitSDNreqOVS", `
+systemd unit openshift-sdn-node is running but openvswitch is not.
+Normally openshift-sdn-node starts openvswitch once initialized.
+It is likely that openvswitch has crashed or been stopped.
+
+The software-defined network (SDN) enables networking between
+containers on different nodes. Containers will not be able to
+connect to each other without the openvswitch service carrying
+this traffic.
+
+An administrator can start openvswitch with:
+
+  # systemctl start openvswitch
+
+To ensure it is not repeatedly failing to run, check the status and logs with:
+
+  # systemctl status openvswitch
+  # journalctl -ru openvswitch `)
 			}
 			// Anything that is enabled but not running deserves notice
 			for name, unit := range u {
