@@ -68,7 +68,7 @@ with the --%[1]s flag, or just not specify the flag.
 		if confFlag != "" { // user expected conf file at specific place
 			log.Errorf("discNoCC", "The client configuration file was not found where --%s='%s' indicated.", confFlagName, confFlag)
 		} else if env.Flags.MustCheck != types.ClientTarget {
-			log.Info("discSkipCLI", "No client config file found; client diagnostics will not be performed.")
+			log.Notice("discSkipCLI", "No client config file found; client diagnostics will not be performed.")
 		} else {
 			// user specifically wants to troubleshoot client, but not with a conf file
 			log.Warn("discNoCCfile", "No client config file read; OpenShift client diagnostics will use flags and default configuration.")
