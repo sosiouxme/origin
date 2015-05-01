@@ -56,6 +56,7 @@ readonly OPENSHIFT_BINARY_SYMLINKS=(
   openshift-sti-build
   openshift-docker-build
   openshift-gitserver
+  openshift-diagnostics
   osc
   osadm
 )
