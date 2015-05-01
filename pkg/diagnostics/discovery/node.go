@@ -1,7 +1,7 @@
 package discovery
 
 import (
-	"github.com/kr/pretty"
+	//"github.com/kr/pretty"
 	mconfigapilatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
 	"github.com/openshift/origin/pkg/cmd/server/start"
 	"github.com/openshift/origin/pkg/diagnostics/log"
@@ -33,7 +33,7 @@ func nodeDiscovery(env *types.Environment, options *start.NodeOptions) {
 }
 
 func tryNodeConfig(env *types.Environment, options *start.NodeOptions, errOnFail bool) bool {
-	pretty.Printf("nodeconfig options are:\n%#v", options)
+	//pretty.Println("nodeconfig options are:", options)
 	logOnFail := log.Debugf
 	if errOnFail {
 		logOnFail = log.Errorf

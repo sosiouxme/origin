@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/server/api/validation"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
 	"github.com/openshift/origin/pkg/cmd/util/docker"
+	"github.com/spf13/pflag"
 )
 
 type NodeOptions struct {
@@ -43,47 +44,51 @@ node will run in the foreground until you terminate the process.
 
 // NewCommandStartNode provides a CLI handler for 'start' command
 func NewCommandStartNode() (*cobra.Command, *NodeOptions) {
-	options := &NodeOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "node",
 		Short: "Launch OpenShift node",
 		Long:  longNodeCommandDesc,
-		Run: func(c *cobra.Command, args []string) {
-			if err := options.Complete(); err != nil {
-				fmt.Println(err.Error())
-				c.Help()
-				return
-			}
-			if err := options.Validate(args); err != nil {
-				fmt.Println(err.Error())
-				c.Help()
-				return
-			}
-
-			startProfiler()
-
-			if err := options.StartNode(); err != nil {
-				if kerrors.IsInvalid(err) {
-					if details := err.(*kerrors.StatusError).ErrStatus.Details; details != nil {
-						fmt.Fprintf(c.Out(), "Invalid %s %s\n", details.Kind, details.ID)
-						for _, cause := range details.Causes {
-							fmt.Fprintln(c.Out(), cause.Message)
-						}
-						os.Exit(255)
-					}
-				}
-				glog.Fatal(err)
-			}
-		},
 	}
 
 	flags := cmd.Flags()
-
+	options := NodeArgsAndFlags(flags)
 	flags.BoolVar(&options.WriteConfigOnly, "write-config", false, "Indicates that the command should build the configuration from command-line arguments, write it to the location specified by --config, and exit.")
 	flags.StringVar(&options.ConfigFile, "config", "", "Location of the node configuration file to run from, or write to (when used with --write-config). When running from a configuration file, all other command-line arguments are ignored.")
 
-	options.NodeArgs = NewDefaultNodeArgs()
+	cmd.Run = func(c *cobra.Command, args []string) {
+		if err := options.Complete(); err != nil {
+			fmt.Println(err.Error())
+			c.Help()
+			return
+		}
+		if err := options.Validate(args); err != nil {
+			fmt.Println(err.Error())
+			c.Help()
+			return
+		}
+
+		startProfiler()
+
+		if err := options.StartNode(); err != nil {
+			if kerrors.IsInvalid(err) {
+				if details := err.(*kerrors.StatusError).ErrStatus.Details; details != nil {
+					fmt.Fprintf(c.Out(), "Invalid %s %s\n", details.Kind, details.ID)
+					for _, cause := range details.Causes {
+						fmt.Fprintln(c.Out(), cause.Message)
+					}
+					os.Exit(255)
+				}
+			}
+			glog.Fatal(err)
+		}
+	}
+
+	return cmd, options
+}
+
+func NodeArgsAndFlags(flags *pflag.FlagSet) *NodeOptions {
+	options := &NodeOptions{NodeArgs: NewDefaultNodeArgs()}
 	// make sure that KubeConnectionArgs and NodeArgs use the same CertArgs for this command
 	options.NodeArgs.KubeConnectionArgs.CertArgs = options.NodeArgs.CertArgs
 
@@ -92,8 +97,7 @@ func NewCommandStartNode() (*cobra.Command, *NodeOptions) {
 	BindImageFormatArgs(options.NodeArgs.ImageFormatArgs, flags, "")
 	BindKubeConnectionArgs(options.NodeArgs.KubeConnectionArgs, flags, "")
 	BindCertArgs(options.NodeArgs.CertArgs, flags, "")
-
-	return cmd, options
+	return options
 }
 
 func (o NodeOptions) Validate(args []string) error {
