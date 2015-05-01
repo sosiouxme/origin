@@ -53,19 +53,22 @@ func NewCommand(name string) *cobra.Command {
 	}
 	diagFlags := types.NewFlags(cmd.PersistentFlags())
 	addFlags(cmd, diagFlags)
-	cmd.Flags().StringVar(&diagFlags.ClientConfigPath, config.OpenShiftConfigFlagName, "", "Path to the config file to use for client configuration.")
-	cmd.Flags().StringVar(&diagFlags.MasterConfigPath, "master-config", "", "Path to the config file to use for master configuration.")
-	cmd.Flags().StringVar(&diagFlags.NodeConfigPath, "node-config", "", "Path to the config file to use for node configuration.")
+	cmd.Flags().StringVar(&diagFlags.ClientConfigPath, config.OpenShiftConfigFlagName, "", "Path to the client config file.")
+	cmd.Flags().StringVar(&diagFlags.MasterConfigPath, "master-config", "", "Path to the master config file.")
+	cmd.Flags().StringVar(&diagFlags.NodeConfigPath, "node-config", "", "Path to the node config file.")
 
 	/* There is some weirdness with diagnostics flag usage. The same flags
-	   object is shared between the (implied) "all" and the client commands.
+	   object is shared between the (implied) "all" cmd and the client cmd.
+
 	   We actually use the client factory built in the "client" subcommand for
-	   discovery in either case, and that adds flags to the subcommand which
-	   need a target for putting results in; we do not want it to add flags
-	   to the "all" command, but those flags have to exist somewhere for the
-	   factory to set values and look them up later (even though on the "all"
-	   command they will not exist; the only option is a client config file).
-	   So the client flags object is reused for the "all" command.
+	   discovery in either case, and that adds flags to the "client" cmd which
+	   need a target for putting results in; we do not want the factory to add
+	   those flags to the "all" command (the only client option there is a
+	   config file), but those flags have to exist somewhere for the factory
+	   to set values and look them up later (even though on the "all" command
+	   the flags will not exist).
+
+	   So the flags object from client cmd is reused for the "all" command.
 	*/
 
 	ccmd, factory := NewClientCommand(name+" client", diagFlags)
