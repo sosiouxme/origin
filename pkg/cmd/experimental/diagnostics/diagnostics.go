@@ -90,7 +90,7 @@ func NewCommand(name string) *cobra.Command {
 // Used in the command definition for common flags that we want to be visible in usage
 func addFlags(cmd *cobra.Command, flags *types.Flags) {
 	cmd.Flags().VarP(&flags.Diagnostics, "diagnostics", "d", `comma-separated list of diagnostic names to run, e.g. "systemd.AnalyzeLogs"`)
-	cmd.Flags().IntVarP(&flags.LogLevel, "loglevel", "l", 3, "Level of output: 0: Error, 1: Warn, 2: Notice, 3: Info, 4: Debug")
+	cmd.Flags().IntVarP(&flags.LogLevel, "diaglevel", "l", 3, "Level of output: 0: Error, 1: Warn, 2: Notice, 3: Info, 4: Debug")
 	cmd.Flags().StringVarP(&flags.Format, "output", "o", "text", "Output format: text|json|yaml")
 }
 
