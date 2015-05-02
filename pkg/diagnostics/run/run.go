@@ -7,6 +7,7 @@ import (
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/systemd"
 	"github.com/openshift/origin/pkg/diagnostics/types"
+	"os"
 	"strings"
 )
 
@@ -49,6 +50,9 @@ func Diagnose(fl *types.Flags, f *osclientcmd.Factory) {
 	}
 	log.Summary()
 	log.Finish()
+	if log.ErrorsSeen() {
+		os.Exit(255)
+	}
 }
 
 func RunDiagnostic(area string, name string, diag types.Diagnostic, env *types.Environment) {

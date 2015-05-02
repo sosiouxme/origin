@@ -191,3 +191,7 @@ func LimitLines(msg string, n int) string {
 func Finish() {
 	logger.Finish()
 }
+
+func ErrorsSeen() bool {
+	return errorsSeen > 0
+}
