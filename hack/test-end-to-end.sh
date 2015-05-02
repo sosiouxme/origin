@@ -199,7 +199,7 @@ openshift admin create-master-certs \
 	--cert-dir="${MASTER_CONFIG_DIR}" \
 	--hostnames="${SERVER_HOSTNAME_LIST}" \
 	--master="${MASTER_ADDR}" \
-	--public-master="${API_SCHEME}://${PUBLIC_MASTER_HOST}"
+	--public-master="${API_SCHEME}://${PUBLIC_MASTER_HOST}:${API_PORT}"
 
 openshift admin create-node-config \
 	--listen="${KUBELET_SCHEME}://0.0.0.0:${KUBELET_PORT}" \
@@ -221,7 +221,7 @@ openshift start \
 	--create-certs=false \
     --listen="${API_SCHEME}://0.0.0.0:${API_PORT}" \
     --master="${MASTER_ADDR}" \
-    --public-master="${API_SCHEME}://${PUBLIC_MASTER_HOST}" \
+    --public-master="${API_SCHEME}://${PUBLIC_MASTER_HOST}:${API_PORT}" \
     --hostname="${KUBELET_HOST}" \
     --volume-dir="${VOLUME_DIR}" \
     --etcd-dir="${ETCD_DATA_DIR}" \
@@ -357,6 +357,12 @@ validate_response "-s -k --resolve www.example.com:443:${CONTAINER_ACCESSIBLE_AP
 echo "[INFO] Validating exec"
 registry_pod=$(osc get pod | grep deployment=docker-registry | grep docker-registry | awk '{print $1}')
 osc exec -p ${registry_pod} whoami | grep root
+
+# Diagnostics
+echo "[INFO] Running openshift-diagnostics"
+# show only errors, fail if any errors
+wait_for_command "openshift-diagnostics --config=${OPENSHIFTCONFIG} --master-config=${MASTER_CONFIG_DIR}/master-config.yaml --node-config=${NODE_CONFIG_DIR}/node-config.yaml --diaglevel=0" 60
+wait_for_command "openshift ex diagnostics client --diaglevel=0" 15
 
 # Port forwarding
 echo "[INFO] Validating port-forward"
