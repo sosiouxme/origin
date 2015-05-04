@@ -25,6 +25,41 @@ System Environment
 
   Containers need to be able to resolve hostnames, so if you run a local DNS server on your host, you should update your /etc/resolv.conf to instead use a DNS server that will be reachable from within running containers.  Google's "8.8.8.8" server is a popular choice.
 
+Diagnostics
+-----------
+
+In any system like OpenShift where a lot of components are working together, 
+it can be difficult to figure out where a process is breaking down. To help
+with this discovery and diagnosis, `openshift ex diagnostics` can detect a
+number of common problems and misconfigurations. It can diagnose a running
+master / node, client connection, or any combination of these that is detected
+or specified. For any (potential) problems that it detects, it will explain
+in detail what is going on.
+
+    $ openshift ex diagnostics
+    [Note] Beginning discovery of environment
+    ERROR: Testing client config context public-default
+           Server: https://foobar.example.com:8443
+           User: system:admin
+           
+           (*url.Error) Get https://foobar.example.com:8443/osapi/v1beta1/projects: dial tcp 10.5.166.228:8443: i/o timeout
+           This means that when we tried to connect to the OpenShift API server
+           (master), we could not reach the host at all.
+           * You may have specified the wrong host address.
+           * This could mean the host is completely unavailable (down).
+           * This could indicate a routing problem or a firewall that simply
+             drops requests rather than responding by reseting the connection.
+           * It does not generally mean that DNS name resolution failed (which
+             would be a different error) though the problem could be that it
+             gave the wrong address.
+
+This is a low-effort way to save some time trying to find common problems.
+It also has options to make output machine-readable (JSON or YAML) for
+collecting automated diagnostics.
+
+This command is experimental and evolving; GitHub issues/PRs for
+false positives/negatives and enhanced diagnostics are strongly encouraged.
+
 Build Failures
 --------------
 
