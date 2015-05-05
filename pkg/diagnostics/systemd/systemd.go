@@ -57,18 +57,18 @@ var tlsClientErrorSeen map[string]bool
 
 // Specify what units we can check and what to look for and say about it
 var unitLogSpecs = []*unitSpec{
-	&unitSpec{
+	{
 		Name:       "openshift-master",
 		StartMatch: regexp.MustCompile("Starting an OpenShift master"),
 		LogMatchers: []logMatcher{
 			badImageTemplate,
-			logMatcher{
+			{
 				Regexp:         regexp.MustCompile("Unable to decode an event from the watch stream: local error: unexpected message"),
 				Level:          log.InfoLevel,
 				Id:             "sdLogOMIgnore",
 				Interpretation: "You can safely ignore this message.",
 			},
-			logMatcher{
+			{
 				Regexp: regexp.MustCompile("HTTP probe error: Get .*/healthz: dial tcp .*:10250: connection refused"),
 				Level:  log.InfoLevel,
 				Id:     "sdLogOMhzRef",
@@ -79,7 +79,7 @@ Since the master records are typically created before the node is
 available, this is not usually a problem, unless it continues in the
 logs after the node is actually available.`,
 			},
-			logMatcher{
+			{
 				// TODO: don't rely on ipv4 format, should be ipv6 "soon"
 				Regexp: regexp.MustCompile("http: TLS handshake error from ([\\d.]+):\\d+: remote error: bad certificate"),
 				Level:  log.WarnLevel,
@@ -136,7 +136,7 @@ log message:
 					return true // show once for every client failing to connect, not just the first
 				},
 			},
-			logMatcher{
+			{
 				// user &{system:anonymous  [system:unauthenticated]} -> /api/v1beta1/services?namespace="
 				Regexp: regexp.MustCompile("system:anonymous\\W*system:unauthenticated\\W*/api/v1beta1/services\\?namespace="),
 				Level:  log.WarnLevel,
@@ -158,17 +158,17 @@ message for any node with this problem.
 			},
 		},
 	},
-	&unitSpec{
+	{
 		Name:        "openshift-sdn-master",
 		StartMatch:  regexp.MustCompile("Starting OpenShift SDN Master"),
 		LogMatchers: []logMatcher{},
 	},
-	&unitSpec{
+	{
 		Name:       "openshift-node",
 		StartMatch: regexp.MustCompile("Starting an OpenShift node"),
 		LogMatchers: []logMatcher{
 			badImageTemplate,
-			logMatcher{
+			{
 				Regexp: regexp.MustCompile(`error updating node status, will retry:.*system:(\S+) cannot get on minions with name "(\S+)" in default|Failed to list .*Forbidden: "\S+" system:node-\S+ cannot list on (pods|services) in`),
 				Level:  log.ErrorLevel,
 				Id:     "sdLogONnodePerm",
@@ -202,7 +202,7 @@ have been put in place and are blocking this request; check the error
 message to see whether the node is attempting to use the wrong node name.
 `,
 			},
-			logMatcher{
+			{
 				Regexp: regexp.MustCompile("Unable to load services: Get (http\\S+/api/v1beta1/services\\?namespace=): (.+)"), // e.g. x509: certificate signed by unknown authority
 				Level:  log.ErrorLevel,
 				Id:     "sdLogONconnMaster",
@@ -212,7 +212,7 @@ to determine its responsibilities. This host will not function as a node
 until this is resolved. Pods scheduled for this node will remain in
 pending or unknown state forever.`,
 			},
-			logMatcher{
+			{
 				Regexp: regexp.MustCompile(`Unable to load services: request.*403 Forbidden: Forbidden: "/api/v1beta1/services\?namespace=" denied by default`),
 				Level:  log.ErrorLevel,
 				Id:     "sdLogONMasterForbids",
@@ -230,11 +230,11 @@ scheduled for this node will remain in pending or unknown state forever.`,
 			},
 		},
 	},
-	&unitSpec{
+	{
 		Name:       "openshift-sdn-node",
 		StartMatch: regexp.MustCompile("Starting OpenShift SDN node"),
 		LogMatchers: []logMatcher{
-			logMatcher{
+			{
 				Regexp: regexp.MustCompile("Could not find an allocated subnet for this minion.*Waiting.."),
 				Level:  log.WarnLevel,
 				Id:     "sdLogOSNnoSubnet",
@@ -261,11 +261,11 @@ Check MASTER_URL in /etc/sysconfig/openshift-sdn-node:
 			},
 		},
 	},
-	&unitSpec{
+	{
 		Name:       "docker",
 		StartMatch: regexp.MustCompile(`Starting Docker Application Container Engine.`), // RHEL Docker at least
 		LogMatchers: []logMatcher{
-			logMatcher{
+			{
 				Regexp: regexp.MustCompile(`Usage: docker \\[OPTIONS\\] COMMAND`),
 				Level:  log.ErrorLevel,
 				Id:     "sdLogDbadOpt",
@@ -278,7 +278,7 @@ so check there for problems.
 
 The OpenShift node will not work on this host until this is resolved.`,
 			},
-			logMatcher{
+			{
 				Regexp: regexp.MustCompile(`^Unable to open the database file: unable to open database file$`),
 				Level:  log.ErrorLevel,
 				Id:     "sdLogDopenDB",
@@ -296,7 +296,7 @@ containers will not be deleted):
 Whatever the reason, docker will not function in this state.
 The OpenShift node will not work on this host until this is resolved.`,
 			},
-			logMatcher{
+			{
 				Regexp: regexp.MustCompile(`no space left on device$`),
 				Level:  log.ErrorLevel,
 				Id:     "sdLogDfull",
@@ -314,7 +314,7 @@ containers will not be deleted):
 
 The OpenShift node will not work on this host until this is resolved.`,
 			},
-			logMatcher{ // generic error seen - do this last
+			{ // generic error seen - do this last
 				Regexp: regexp.MustCompile(`\\slevel="fatal"\\s`),
 				Level:  log.ErrorLevel,
 				Id:     "sdLogDfatal",
@@ -324,7 +324,7 @@ so the OpenShift node will not work on this host until it is resolved.`,
 			},
 		},
 	},
-	&unitSpec{
+	{
 		Name:        "openvswitch",
 		StartMatch:  regexp.MustCompile("Starting Open vSwitch"),
 		LogMatchers: []logMatcher{},
@@ -344,7 +344,7 @@ var systemdRelevant = func(env *types.Environment) (skip bool, reason string) {
 
 var Diagnostics = map[string]types.Diagnostic{
 
-	"AnalyzeLogs": types.Diagnostic{
+	"AnalyzeLogs": {
 		Description: "Check for problems in systemd service logs since each service last started",
 		Condition:   systemdRelevant,
 		Run: func(env *types.Environment) {
@@ -357,7 +357,7 @@ var Diagnostics = map[string]types.Diagnostic{
 		},
 	},
 
-	"UnitStatus": types.Diagnostic{
+	"UnitStatus": {
 		Description: "Check status for OpenShift-related systemd units",
 		Condition:   systemdRelevant,
 		Run: func(env *types.Environment) {

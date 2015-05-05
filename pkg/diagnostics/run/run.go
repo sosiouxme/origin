@@ -14,7 +14,7 @@ import (
 func Diagnose(fl *types.Flags, f *osclientcmd.Factory) {
 	if env, ok := discovery.Run(fl, f); ok { // discovery result can veto continuing
 		allDiags := make(map[string]map[string]types.Diagnostic)
-		for area, _ := range env.WillCheck {
+		for area := range env.WillCheck {
 			switch area {
 			case types.ClientTarget:
 				allDiags["client"] = client.Diagnostics

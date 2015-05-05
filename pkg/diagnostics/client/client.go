@@ -11,7 +11,7 @@ import (
 )
 
 var Diagnostics = map[string]types.Diagnostic{
-	"NodeDefinitions": types.Diagnostic{
+	"NodeDefinitions": {
 		Description: "Check node records on master",
 		Condition: func(env *types.Environment) (skip bool, reason string) {
 			if env.ClusterAdminFactory == nil {
@@ -72,7 +72,7 @@ and any existing scheduled pods will be considered failed and removed.
 			}
 		},
 	},
-	"ConfigContexts": types.Diagnostic{
+	"ConfigContexts": {
 		Description: "Test that client config contexts have no undefined references",
 		Condition: func(env *types.Environment) (skip bool, reason string) {
 			if env.ClientConfigRaw == nil {
@@ -85,7 +85,7 @@ and any existing scheduled pods will be considered failed and removed.
 			current := cc.CurrentContext
 			ccSuccess := false
 			var ccResult log.Msg //nil
-			for context, _ := range cc.Contexts {
+			for context := range cc.Contexts {
 				result, success := TestContext(context, cc)
 				msg := log.Msg{"tmpl": "For client config context '{{.context}}':{{.result}}", "context": context, "result": result}
 				if context == current {
