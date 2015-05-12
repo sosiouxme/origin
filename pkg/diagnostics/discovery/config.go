@@ -8,9 +8,9 @@ import (
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 	"github.com/openshift/origin/pkg/cmd/cli/config"
+	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics/options"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 	"github.com/openshift/origin/pkg/diagnostics/log"
-	"github.com/openshift/origin/pkg/diagnostics/types"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -27,29 +27,33 @@ as we go along, and try to be helpful.
 
 // -------------------------------------------------------------
 // Look for client config file in a number of possible locations
-func readClientConfigFiles(env *types.Environment) {
-	confFlagName := config.OpenShiftConfigFlagName
-	confFlag := env.Flags.ClientConfigPath // from openshift-diagnostics --config
-	if flag := env.Flags.OpenshiftFlags.Lookup(confFlagName); flag != nil {
-		confFlag = flag.Value.String() // from openshift-diagnostics client --config
+func (env *Environment) ReadClientConfigFiles() {
+	confFlagName := options.FlagAllClientConfigName
+	confFlag := env.Options.ClientConfigPath // from openshift-diagnostics --client-config
+	if flags := env.Options.GlobalFlags; flags != nil {
+		name := config.OpenShiftConfigFlagName
+		if flag := env.Options.GlobalFlags.Lookup(name); flag != nil {
+			confFlag = flag.Value.String() // from openshift-diagnostics client --config
+			confFlagName = name
+		}
 	}
-	//confFlag := []string{env.Flags.OpenshiftFlags.Lookup(confFlagName).Value.String()}
 	var found bool
 	rules := config.NewOpenShiftClientConfigLoadingRules()
-	for index, path := range append([]string{confFlag}, rules.Precedence...) {
+	paths := append([]string{confFlag}, rules.Precedence...)
+	for index, path := range paths {
 		errmsg := ""
 		switch index {
 		case 0:
 			errmsg = fmt.Sprintf("--"+confFlagName+" specified that client config should be at %s\n", path)
+		case len(paths) - 1:
+			// do nothing, the config wasn't found in ~
 		default:
-			// TODO: not accurate, the env var can actually specify multiple paths and
-			// only one need match. Revisit this if anyone actually does that.
 			if len(os.Getenv(config.OpenShiftConfigPathEnvVar)) != 0 {
 				errmsg = fmt.Sprintf("$OPENSHIFTCONFIG specified that client config should be at %s\n", path)
 			}
 		}
 
-		if rawConfig := openConfigFile(path, errmsg); rawConfig != nil && !found {
+		if rawConfig := openConfigFile(path, errmsg, env.Log); rawConfig != nil && !found {
 			found = true
 			env.ClientConfigPath = path
 			env.ClientConfigRaw = rawConfig
@@ -58,7 +62,7 @@ func readClientConfigFiles(env *types.Environment) {
 	if found {
 		if confFlag != "" && confFlag != env.ClientConfigPath {
 			// found config but not where --config said, so don't continue discovery
-			log.Errorf("discCCnotFlag", `
+			env.Log.Errorf("discCCnotFlag", `
 The client configuration file was not found where the --%s flag indicated:
   %s
 A config file was found at the following location:
@@ -68,17 +72,17 @@ with the --%[1]s flag, or just not specify the flag.
 			`, confFlagName, confFlag, env.ClientConfigPath)
 		} else {
 			// happy path, client config found as expected
-			env.WillCheck[types.ClientTarget] = true
+			env.WillCheck[ClientTarget] = true
 		}
 	} else { // not found, decide what to do
 		if confFlag != "" { // user expected conf file at specific place
-			log.Errorf("discNoCC", "The client configuration file was not found where --%s='%s' indicated.", confFlagName, confFlag)
-		} else if env.Flags.MustCheck != types.ClientTarget {
-			log.Notice("discSkipCLI", "No client config file found; client diagnostics will not be performed.")
+			env.Log.Errorf("discNoCC", "The client configuration file was not found where --%s='%s' indicated.", confFlagName, confFlag)
+		} else if !env.Options.ClientOptions.MustCheck {
+			env.Log.Notice("discSkipCLI", "No client config file found; client diagnostics will not be performed.")
 		} else {
 			// user specifically wants to troubleshoot client, but not with a conf file
-			log.Warn("discNoCCfile", "No client config file read; OpenShift client diagnostics will use flags and default configuration.")
-			env.WillCheck[types.ClientTarget] = true
+			env.Log.Warn("discNoCCfile", "No client config file read; OpenShift client diagnostics will use flags and default configuration.")
+			env.WillCheck[ClientTarget] = true
 			adminPaths := []string{
 				"/var/lib/openshift/openshift.certificates.d/admin/.kubeconfig", // enterprise
 				"/openshift.certificates.d/admin/.kubeconfig",                   // origin systemd
@@ -97,8 +101,8 @@ place it in a standard location.
 `
 			// look for it in auto-generated locations when not found properly
 			for _, path := range adminPaths {
-				if conf := openConfigFile(path, ""); conf != nil {
-					log.Warnf("discCCautoPath", adminWarningF, path)
+				if conf := openConfigFile(path, "", env.Log); conf != nil {
+					env.Log.Warnf("discCCautoPath", adminWarningF, path)
 					break
 				}
 			}
@@ -109,34 +113,34 @@ place it in a standard location.
 // ----------------------------------------------------------
 // Attempt to open file at path as client config
 // If there is a problem and errmsg is set, log an error
-func openConfigFile(path string, errmsg string) *clientcmdapi.Config {
+func openConfigFile(path string, errmsg string, logger *log.Logger) *clientcmdapi.Config {
 	var err error
 	var file *os.File
 	if path == "" { // empty param/envvar
 		return nil
 	} else if file, err = os.Open(path); err == nil {
-		log.Debugm("discOpenCC", log.Msg{"tmpl": "Reading client config at {{.path}}", "path": path})
+		logger.Debugm("discOpenCC", log.Msg{"tmpl": "Reading client config at {{.path}}", "path": path})
 	} else if errmsg == "" {
-		log.Debugf("discOpenCCNo", "Could not read client config at %s:\n%#v", path, err)
+		logger.Debugf("discOpenCCNo", "Could not read client config at %s:\n%#v", path, err)
 	} else if os.IsNotExist(err) {
-		log.Error("discOpenCCNoExist", errmsg+"but that file does not exist.")
+		logger.Error("discOpenCCNoExist", errmsg+"but that file does not exist.")
 	} else if os.IsPermission(err) {
-		log.Error("discOpenCCNoPerm", errmsg+"but lack permission to read that file.")
+		logger.Error("discOpenCCNoPerm", errmsg+"but lack permission to read that file.")
 	} else {
-		log.Errorf("discOpenCCErr", "%sbut there was an error opening it:\n%#v", errmsg, err)
+		logger.Errorf("discOpenCCErr", "%sbut there was an error opening it:\n%#v", errmsg, err)
 	}
 	if file != nil { // it is open for reading
 		defer file.Close()
 		if buffer, err := ioutil.ReadAll(file); err != nil {
-			log.Errorf("discCCReadErr", "Unexpected error while reading client config file (%s): %v", path, err)
+			logger.Errorf("discCCReadErr", "Unexpected error while reading client config file (%s): %v", path, err)
 		} else if conf, err := clientcmd.Load(buffer); err != nil {
-			log.Errorf("discCCYamlErr", `
+			logger.Errorf("discCCYamlErr", `
 Error reading YAML from client config file (%s):
   %v
 This file may have been truncated or mis-edited.
 Please fix, remove, or obtain a new client config`, file.Name(), err)
 		} else {
-			log.Infom("discCCRead", log.Msg{"tmpl": `Successfully read a client config file at '{{.path}}'`, "path": path})
+			logger.Infom("discCCRead", log.Msg{"tmpl": `Successfully read a client config file at '{{.path}}'`, "path": path})
 			/* Note, we're not going to use this config file directly.
 			 * Instead, we'll defer to the openshift client code to assimilate
 			 * flags, env vars, and the potential hierarchy of config files
@@ -160,7 +164,7 @@ Please fix, remove, or obtain a new client config`, file.Name(), err)
  * current (default) context if it does. Connection errors should be
  * diagnosed along the way.
  */
-func configClient(env *types.Environment) {
+func (env *Environment) ConfigClient() {
 	if env.OsConfig != nil {
 		// TODO: run these in parallel, with a time limit so connection timeouts don't take forever
 		for cname, context := range env.OsConfig.Contexts {
@@ -172,7 +176,7 @@ func configClient(env *types.Environment) {
 				//f.BindFlags(env.Flags.OpenshiftFlags)
 				env.FactoryForContext[cname] = f
 			}
-			if access := getContextAccess(env.FactoryForContext[cname], cname, context); access != nil {
+			if access := getContextAccess(env.FactoryForContext[cname], cname, context, env.Log); access != nil {
 				env.AccessForContext[cname] = access
 				if access.ClusterAdmin && (cname == env.OsConfig.CurrentContext || env.ClusterAdminFactory == nil) {
 					env.ClusterAdminFactory = env.FactoryForContext[cname]
@@ -183,12 +187,12 @@ func configClient(env *types.Environment) {
 }
 
 // for now, only try to determine what namespaces a user can see
-func getContextAccess(factory *osclientcmd.Factory, ctxName string, ctx clientcmdapi.Context) *types.ContextAccess {
+func getContextAccess(factory *osclientcmd.Factory, ctxName string, ctx clientcmdapi.Context, logger *log.Logger) *ContextAccess {
 	// start by getting ready to log the result
 	msgText := "Testing client config context {{.context}}\nServer: {{.server}}\nUser: {{.user}}\n\n"
 	msg := log.Msg{"id": "discCCctx", "tmpl": msgText}
 	if config, err := factory.OpenShiftClientConfig.RawConfig(); err != nil {
-		log.Errorf("discCCstart", "Could not read client config: (%T) %[1]v", err)
+		logger.Errorf("discCCstart", "Could not read client config: (%T) %[1]v", err)
 		return nil
 	} else {
 		msg["context"] = ctxName
@@ -197,17 +201,17 @@ func getContextAccess(factory *osclientcmd.Factory, ctxName string, ctx clientcm
 	}
 	// actually go and request project list from the server
 	if osclient, _, err := factory.Clients(); err != nil {
-		log.Errorf("discCCctxClients", "Failed to create client during discovery with error:\n(%T) %[1]v\nThis is probably an OpenShift bug.", err)
+		logger.Errorf("discCCctxClients", "Failed to create client during discovery with error:\n(%T) %[1]v\nThis is probably an OpenShift bug.", err)
 		return nil
 	} else if projects, err := osclient.Projects().List(labels.Everything(), fields.Everything()); err == nil { // success!
 		list := projects.Items
 		if len(list) == 0 {
 			msg["tmpl"] = msgText + "Successfully requested project list, but it is empty, so user has no access to anything."
 			msg["projects"] = make([]string, 0)
-			log.Infom("discCCctxSuccess", msg)
+			logger.Infom("discCCctxSuccess", msg)
 			return nil
 		}
-		access := &types.ContextAccess{Projects: make([]string, len(list))}
+		access := &ContextAccess{Projects: make([]string, len(list))}
 		for i, project := range list {
 			access.Projects[i] = project.Name
 			if project.Name == kapi.NamespaceDefault {
@@ -216,12 +220,12 @@ func getContextAccess(factory *osclientcmd.Factory, ctxName string, ctx clientcm
 		}
 		if access.ClusterAdmin {
 			msg["tmpl"] = msgText + "Successfully requested project list; has access to default project, so assumed to be a cluster-admin"
-			log.Infom("discCCctxSuccess", msg)
+			logger.Infom("discCCctxSuccess", msg)
 		} else {
 			msg["tmpl"] = msgText + "Successfully requested project list; has access to project(s): {{.projectStr}}"
 			msg["projects"] = access.Projects
 			msg["projectStr"] = strings.Join(access.Projects, ", ")
-			log.Infom("discCCctxSuccess", msg)
+			logger.Infom("discCCctxSuccess", msg)
 		}
 		return access
 	} else { // something went wrong, so diagnose it
@@ -369,7 +373,7 @@ with this user again.`
 		errMsg := fmt.Sprintf("(%T) %[1]v", err)
 		msg["tmpl"] = msgText + errMsg + reason
 		msg["errMsg"] = errMsg
-		log.Errorm(errId, msg)
+		logger.Errorm(errId, msg)
 	}
 	return nil
 }

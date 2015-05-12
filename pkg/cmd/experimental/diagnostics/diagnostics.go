@@ -2,16 +2,17 @@ package cmd
 
 import (
 	"fmt"
-	"io"
-	//"github.com/openshift/origin/pkg/cmd/cli/cmd"
-	"github.com/openshift/origin/pkg/cmd/cli/config"
+	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics/options"
 	"github.com/openshift/origin/pkg/cmd/server/start"
 	"github.com/openshift/origin/pkg/cmd/templates"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
-	"github.com/openshift/origin/pkg/diagnostics/log"
-	"github.com/openshift/origin/pkg/diagnostics/run"
-	"github.com/openshift/origin/pkg/diagnostics/types"
 	"github.com/spf13/cobra"
+	"io"
+	//"github.com/openshift/origin/pkg/cmd/cli/cmd"
+	//"github.com/openshift/origin/pkg/cmd/cli/config"
+	//"github.com/openshift/origin/pkg/diagnostics/types"
+	//"github.com/openshift/origin/pkg/diagnostics/log"
+	"github.com/openshift/origin/pkg/diagnostics/run"
 )
 
 const longAllDescription = `
@@ -46,60 +47,37 @@ can be used with subcommands.
 `
 
 func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.Command {
+	opts := options.NewAllDiagnosticsOptions(out)
 	cmd := &cobra.Command{
 		Use:   name,
 		Short: "This utility helps you understand and troubleshoot OpenShift v3.",
 		Long:  fmt.Sprintf(longAllDescription, fullName),
+		Run: func(c *cobra.Command, args []string) {
+			opts.GlobalFlags = c.PersistentFlags()
+			run.Diagnose(opts)
+		},
 	}
-	diagFlags := types.NewFlags(cmd.PersistentFlags())
-	addFlags(cmd, diagFlags)
-	cmd.Flags().StringVar(&diagFlags.ClientConfigPath, config.OpenShiftConfigFlagName, "", "Path to the client config file.")
-	cmd.Flags().StringVar(&diagFlags.MasterConfigPath, "master-config", "", "Path to the master config file.")
-	cmd.Flags().StringVar(&diagFlags.NodeConfigPath, "node-config", "", "Path to the node config file.")
+	cmd.SetOutput(out) // for output re: usage / help
+	opts.BindFlags(cmd.Flags(), options.NewAllDiagnosticsFlagInfos())
+	// Although we reuse DiagOptions across all commands, we do not want the flags buried
+	// in the "global" flags, so we add them locally at each command.
+	opts.DiagOptions.BindFlags(cmd.Flags(), options.NewDiagnosticsFlagInfos())
 
-	/* There is some weirdness with diagnostics flag usage. The same flags
-	   object is shared between the (implied) "all" cmd and the client cmd.
-
-	   We actually use the client factory built in the "client" subcommand for
-	   discovery in either case, and that adds flags to the "client" cmd which
-	   need a target for putting results in; we do not want the factory to add
-	   those flags to the "all" command (the only client option there is a
-	   config file), but those flags have to exist somewhere for the factory
-	   to set values and look them up later (even though on the "all" command
-	   the flags will not exist).
-
-	   So the flags object from client cmd is reused for the "all" command.
+	/*
+	   This command needs the client factory built in the "client" subcommand.
+	   Generating the factory adds flags to the "client" cmd, and we do not want
+	   to add those flags to this command (the only client option here is a config
+	   file). So the factory object from client cmd is reused for this command.
 	*/
+	ccmd, factory := NewClientCommand("client", name+" client", out)
+	opts.ClientOptions.Factory = factory
 
-	ccmd, factory := NewClientCommand("client", name+" client", out, diagFlags)
 	cmd.AddCommand(ccmd)
 	cmd.AddCommand(NewMasterCommand("master", name+" master", out))
-	cmd.AddCommand(NewNodeCommand("node", name+" node", out, diagFlags))
+	cmd.AddCommand(NewNodeCommand("node", name+" node", out))
 	cmd.AddCommand(NewOptionsCommand())
 
-	cmd.Run = func(c *cobra.Command, args []string) {
-		runInit(c, out, diagFlags)
-		diagFlags.CanCheck[types.ClientTarget] = true
-		diagFlags.CanCheck[types.MasterTarget] = true
-		diagFlags.CanCheck[types.NodeTarget] = true
-		run.Diagnose(diagFlags, factory)
-	}
 	return cmd
-}
-
-// Used in the command definition for common flags that we want to be visible in usage, not buried in globals
-func addFlags(cmd *cobra.Command, flags *types.Flags) {
-	cmd.Flags().VarP(&flags.Diagnostics, "diagnostics", "d", `comma-separated list of diagnostic names to run, e.g. "systemd.AnalyzeLogs"`)
-	cmd.Flags().IntVarP(&flags.DiagLevel, "diaglevel", "l", 3, "Level of output: 0: Error, 1: Warn, 2: Notice, 3: Info, 4: Debug")
-	cmd.Flags().StringVarP(&flags.Format, "output", "o", "text", "Output format: text|json|yaml")
-}
-
-// Every command invocation needs to do the same things at the beginning...
-func runInit(cmd *cobra.Command, out io.Writer, diagFlags *types.Flags) {
-	cmd.SetOutput(out)                               // for output re usage / help
-	diagFlags.OpenshiftFlags = cmd.PersistentFlags() // capture flags from *this* command in env
-	log.SetLevel(diagFlags.DiagLevel)
-	log.SetLogFormat(diagFlags.Format) // note, ignore error; if format unknown, just do text
 }
 
 const longClientDescription = `
@@ -112,28 +90,28 @@ intended to be run from the same context as an OpenShift client
     $ %s
 `
 
-func NewClientCommand(name string, fullName string, out io.Writer, diagFlags *types.Flags) (*cobra.Command, *osclientcmd.Factory) {
+func NewClientCommand(name string, fullName string, out io.Writer) (*cobra.Command, *osclientcmd.Factory) {
+	opts := options.NewClientDiagnosticsOptions(out, nil)
 	cmd := &cobra.Command{
 		Use:   name,
 		Short: "Troubleshoot using the OpenShift v3 client.",
 		Long:  fmt.Sprintf(longClientDescription, fullName),
+		Run: func(c *cobra.Command, args []string) {
+			run.Diagnose(&options.AllDiagnosticsOptions{
+				ClientOptions: opts,
+				DiagOptions:   opts.DiagOptions,
+				GlobalFlags:   c.PersistentFlags(),
+			})
+		},
 	}
+	cmd.SetOutput(out) // for output re: usage / help
+	opts.MustCheck = true
+	opts.Factory = osclientcmd.New(cmd.PersistentFlags()) // side effect: add standard persistent flags for openshift client
+	opts.BindFlags(cmd.Flags(), options.NewClientDiagnosticsFlagInfos())
+	opts.DiagOptions.BindFlags(cmd.Flags(), options.NewDiagnosticsFlagInfos())
 
-	// Add some diagnostics flags to be shown separately from client flags
-	addFlags(cmd, diagFlags)
-	cmd.Flags().StringVarP(&diagFlags.OpenshiftPath, "openshift", "", "", "Path to 'openshift' binary")
-	cmd.Flags().StringVarP(&diagFlags.OscPath, "osc", "", "", "Path to 'osc' client binary")
-
-	factory := osclientcmd.New(cmd.PersistentFlags()) // side effect: add standard flags for openshift client
-	// finally, set callback function for when this command is invoked:
-	cmd.Run = func(c *cobra.Command, args []string) {
-		runInit(c, out, diagFlags)
-		diagFlags.CanCheck[types.ClientTarget] = true
-		diagFlags.MustCheck = types.ClientTarget
-		run.Diagnose(diagFlags, factory)
-	}
 	cmd.AddCommand(NewOptionsCommand())
-	return cmd, factory
+	return cmd, opts.Factory
 }
 
 const longMasterDescription = `
@@ -148,23 +126,24 @@ systemd or inside a container) and with the same configuration options.
 `
 
 func NewMasterCommand(name string, fullName string, out io.Writer) *cobra.Command {
+	opts := options.NewMasterDiagnosticsOptions(out, nil)
 	cmd := &cobra.Command{
 		Use:   name,
-		Short: "Troubleshoot a running OpenShift v3 master.",
+		Short: "Troubleshoot an OpenShift v3 master.",
 		Long:  fmt.Sprintf(longMasterDescription, fullName),
+		Run: func(c *cobra.Command, args []string) {
+			run.Diagnose(&options.AllDiagnosticsOptions{
+				MasterOptions: opts,
+				DiagOptions:   opts.DiagOptions,
+				GlobalFlags:   c.PersistentFlags(),
+			})
+		},
 	}
-	diagFlags := types.NewFlags(cmd.PersistentFlags())
-	cmd.Run = func(c *cobra.Command, args []string) {
-		runInit(c, out, diagFlags)
-		diagFlags.CanCheck[types.MasterTarget] = true
-		diagFlags.MustCheck = types.MasterTarget
-		run.Diagnose(diagFlags, nil)
-	}
-
-	addFlags(cmd, diagFlags)
-	diagFlags.MasterOptions = &start.MasterOptions{}
-	cmd.Flags().StringVar(&diagFlags.MasterOptions.ConfigFile, "config", "", "Location of the master configuration file to run from. When running from a configuration file, all other command-line arguments are ignored.")
-	diagFlags.MasterOptions.MasterArgs = start.MasterArgsAndFlags(cmd.Flags())
+	cmd.SetOutput(out) // for output re: usage / help
+	opts.MustCheck = true
+	opts.MasterOptions = &start.MasterOptions{MasterArgs: start.MasterArgsAndFlags(cmd.Flags())}
+	opts.BindFlags(cmd.Flags(), options.NewMasterDiagnosticsFlagInfos())
+	opts.DiagOptions.BindFlags(cmd.Flags(), options.NewDiagnosticsFlagInfos())
 
 	cmd.AddCommand(NewOptionsCommand())
 	return cmd
@@ -181,21 +160,26 @@ systemd or inside a container) and with the same configuration options.
     $ %s
 `
 
-func NewNodeCommand(name string, fullName string, out io.Writer, diagFlags *types.Flags) *cobra.Command {
+func NewNodeCommand(name string, fullName string, out io.Writer) *cobra.Command {
+	opts := options.NewNodeDiagnosticsOptions(out, nil)
 	cmd := &cobra.Command{
 		Use:   name,
 		Short: "Troubleshoot an OpenShift v3 node.",
 		Long:  fmt.Sprintf(longNodeDescription, fullName),
 		Run: func(c *cobra.Command, args []string) {
-			runInit(c, out, diagFlags)
-			diagFlags.CanCheck[types.NodeTarget] = true
-			diagFlags.MustCheck = types.NodeTarget
-			run.Diagnose(diagFlags, nil)
+			run.Diagnose(&options.AllDiagnosticsOptions{
+				NodeOptions: opts,
+				DiagOptions: opts.DiagOptions,
+				GlobalFlags: c.PersistentFlags(),
+			})
 		},
 	}
-	addFlags(cmd, diagFlags)
-	diagFlags.NodeOptions = &start.NodeOptions{NodeArgs: start.NodeArgsAndFlags(cmd.Flags())}
-	cmd.Flags().StringVar(&diagFlags.NodeOptions.ConfigFile, "config", "", "Location of the node configuration file to run from. When running from a configuration file, all other command-line arguments are ignored.")
+	cmd.SetOutput(out) // for output re: usage / help
+	opts.MustCheck = true
+	opts.NodeOptions = &start.NodeOptions{NodeArgs: start.NodeArgsAndFlags(cmd.Flags())}
+	opts.BindFlags(cmd.Flags(), options.NewNodeDiagnosticsFlagInfos())
+	opts.DiagOptions.BindFlags(cmd.Flags(), options.NewDiagnosticsFlagInfos())
+
 	cmd.AddCommand(NewOptionsCommand())
 	return cmd
 }

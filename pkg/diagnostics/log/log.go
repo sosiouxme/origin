@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	ct "github.com/daviddengcn/go-colortext"
+	"io"
 	"strings"
 	"text/template"
 )
@@ -17,7 +18,56 @@ type Level struct {
 	Bright bool
 }
 
-//throwing type safety and method signatures out the window:
+type Logger struct {
+	logger       loggerType
+	level        Level
+	warningsSeen int
+	errorsSeen   int
+}
+
+// Internal type to deal with different log formats
+type loggerType interface {
+	Write(Level, Msg)
+	Finish()
+}
+
+func NewLogger(setLevel int, setFormat string, out io.Writer) (*Logger, error) {
+
+	var logger loggerType
+	switch setFormat {
+	case "json":
+		logger = &jsonLogger{out: out}
+	case "yaml":
+		logger = &yamlLogger{out: out}
+	case "text":
+		logger = newTextLogger(out)
+	default:
+		return nil, errors.New("Output format must be one of: text, json, yaml")
+	}
+
+	var err error = nil
+	level := DebugLevel
+	switch setLevel {
+	case 0:
+		level = ErrorLevel
+	case 1:
+		level = WarnLevel
+	case 2:
+		level = NoticeLevel
+	case 3:
+		level = InfoLevel
+	case 4:
+		// Debug, also default for invalid numbers below
+	default:
+		err = errors.New("Invalid diagnostic level; must be 0-4")
+	}
+	return &Logger{
+		logger: logger,
+		level:  level,
+	}, err
+}
+
+// a map message type to throw type safety and method signatures out the window:
 type Msg map[string]interface{}
 
 /* a Msg can be expected to have the following entries:
@@ -40,64 +90,22 @@ var (
 	DebugLevel  = Level{4, "debug", "debug: ", ct.None, false} // Extra verbose
 )
 
-var current Level = InfoLevel // default
-var warningsSeen int = 0
-var errorsSeen int = 0
-
-func SetLevel(level int) {
-	switch level {
-	case 0:
-		current = ErrorLevel
-	case 1:
-		current = WarnLevel
-	case 2:
-		current = NoticeLevel
-	case 3:
-		current = InfoLevel
-	default:
-		current = DebugLevel
-	}
-}
-
-//
-// Deal with different log formats
-//
-type loggerType interface {
-	Write(Level, Msg)
-	Finish()
-}
-
-var logger loggerType = &textLogger{} // default to human user
-func SetLogFormat(format string) error {
-	logger = &textLogger{} // default
-	switch format {
-	case "json":
-		logger = &jsonLogger{}
-	case "yaml":
-		logger = &yamlLogger{}
-	case "text":
-	default:
-		return errors.New("Output format must be one of: text, json, yaml")
-	}
-	return nil
-}
-
 // Provide a summary at the end
-func Summary() {
-	Notice("summary", "\nSummary of diagnostics execution:\n")
-	if warningsSeen > 0 {
-		Noticem("sumWarn", Msg{"tmpl": "Warnings seen: {{.num}}", "num": warningsSeen})
+func (l *Logger) Summary() {
+	l.Notice("summary", "\nSummary of diagnostics execution:\n")
+	if l.warningsSeen > 0 {
+		l.Noticem("sumWarn", Msg{"tmpl": "Warnings seen: {{.num}}", "num": l.warningsSeen})
 	}
-	if errorsSeen > 0 {
-		Noticem("sumErr", Msg{"tmpl": "Errors seen: {{.num}}", "num": errorsSeen})
+	if l.errorsSeen > 0 {
+		l.Noticem("sumErr", Msg{"tmpl": "Errors seen: {{.num}}", "num": l.errorsSeen})
 	}
-	if warningsSeen == 0 && errorsSeen == 0 {
-		Notice("sumNone", "Completed with no errors or warnings seen.")
+	if l.warningsSeen == 0 && l.errorsSeen == 0 {
+		l.Notice("sumNone", "Completed with no errors or warnings seen.")
 	}
 }
 
-func Log(l Level, id string, msg Msg) {
-	if l.Level > current.Level {
+func (l *Logger) Log(level Level, id string, msg Msg) {
+	if level.Level > l.level.Level {
 		return
 	}
 	msg["id"] = id // TODO: use to retrieve template from elsewhere
@@ -124,59 +132,67 @@ func Log(l Level, id string, msg Msg) {
 			}
 		}
 	}
-	if l.Level == ErrorLevel.Level {
-		errorsSeen += 1
-	} else if l.Level == WarnLevel.Level {
-		warningsSeen += 1
+	if level.Level == ErrorLevel.Level {
+		l.errorsSeen += 1
+	} else if level.Level == WarnLevel.Level {
+		l.warningsSeen += 1
 	}
-	logger.Write(l, msg)
+	l.logger.Write(level, msg)
 }
 
 // Convenience functions
-func Error(id string, text string) {
-	Log(ErrorLevel, id, Msg{"text": text})
+func (l *Logger) Error(id string, text string) {
+	l.Log(ErrorLevel, id, Msg{"text": text})
 }
-func Errorf(id string, msg string, a ...interface{}) {
-	Error(id, fmt.Sprintf(msg, a...))
+func (l *Logger) Errorf(id string, msg string, a ...interface{}) {
+	l.Error(id, fmt.Sprintf(msg, a...))
 }
-func Errorm(id string, msg Msg) {
-	Log(ErrorLevel, id, msg)
+func (l *Logger) Errorm(id string, msg Msg) {
+	l.Log(ErrorLevel, id, msg)
 }
-func Warn(id string, text string) {
-	Log(WarnLevel, id, Msg{"text": text})
+func (l *Logger) Warn(id string, text string) {
+	l.Log(WarnLevel, id, Msg{"text": text})
 }
-func Warnf(id string, msg string, a ...interface{}) {
-	Warn(id, fmt.Sprintf(msg, a...))
+func (l *Logger) Warnf(id string, msg string, a ...interface{}) {
+	l.Warn(id, fmt.Sprintf(msg, a...))
 }
-func Warnm(id string, msg Msg) {
-	Log(WarnLevel, id, msg)
+func (l *Logger) Warnm(id string, msg Msg) {
+	l.Log(WarnLevel, id, msg)
 }
-func Info(id string, text string) {
-	Log(InfoLevel, id, Msg{"text": text})
+func (l *Logger) Info(id string, text string) {
+	l.Log(InfoLevel, id, Msg{"text": text})
 }
-func Infof(id string, msg string, a ...interface{}) {
-	Info(id, fmt.Sprintf(msg, a...))
+func (l *Logger) Infof(id string, msg string, a ...interface{}) {
+	l.Info(id, fmt.Sprintf(msg, a...))
 }
-func Infom(id string, msg Msg) {
-	Log(InfoLevel, id, msg)
+func (l *Logger) Infom(id string, msg Msg) {
+	l.Log(InfoLevel, id, msg)
 }
-func Notice(id string, text string) {
-	Log(NoticeLevel, id, Msg{"text": text})
+func (l *Logger) Notice(id string, text string) {
+	l.Log(NoticeLevel, id, Msg{"text": text})
 }
-func Noticef(id string, msg string, a ...interface{}) {
-	Notice(id, fmt.Sprintf(msg, a...))
+func (l *Logger) Noticef(id string, msg string, a ...interface{}) {
+	l.Notice(id, fmt.Sprintf(msg, a...))
 }
-func Noticem(id string, msg Msg) {
-	Log(NoticeLevel, id, msg)
+func (l *Logger) Noticem(id string, msg Msg) {
+	l.Log(NoticeLevel, id, msg)
 }
-func Debug(id string, text string) {
-	Log(DebugLevel, id, Msg{"text": text})
+func (l *Logger) Debug(id string, text string) {
+	l.Log(DebugLevel, id, Msg{"text": text})
 }
-func Debugf(id string, msg string, a ...interface{}) {
-	Debug(id, fmt.Sprintf(msg, a...))
+func (l *Logger) Debugf(id string, msg string, a ...interface{}) {
+	l.Debug(id, fmt.Sprintf(msg, a...))
 }
-func Debugm(id string, msg Msg) {
-	Log(DebugLevel, id, msg)
+func (l *Logger) Debugm(id string, msg Msg) {
+	l.Log(DebugLevel, id, msg)
+}
+
+func (l *Logger) Finish() {
+	l.logger.Finish()
+}
+
+func (l *Logger) ErrorsSeen() bool {
+	return l.errorsSeen > 0
 }
 
 // turn excess lines into [...]
@@ -186,12 +202,4 @@ func LimitLines(msg string, n int) string {
 		lines[n] = "[...]"
 	}
 	return strings.Join(lines, "\n")
-}
-
-func Finish() {
-	logger.Finish()
-}
-
-func ErrorsSeen() bool {
-	return errorsSeen > 0
 }

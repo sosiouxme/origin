@@ -1,27 +1,36 @@
-package types
+package discovery
 
 import (
 	kclientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
+	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics/options"
 	mconfigapi "github.com/openshift/origin/pkg/cmd/server/api"
-	mstart "github.com/openshift/origin/pkg/cmd/server/start"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
+	"github.com/openshift/origin/pkg/diagnostics/log"
+	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 // One env instance is created and filled in by discovery.
 // Then it should be considered immutable while diagnostics use it.
 type Environment struct {
-	OS           string // "linux / windows / darwin" http://golang.org/pkg/runtime/#GOOS
-	HasSystemd   bool
-	HasBash      bool
-	SystemdUnits map[string]SystemdUnit // list of relevant units present on system
-	Flags        *Flags                 // command flags deposit results here; also has command flag objects
-	WillCheck    map[Target]bool        // discover whether to diagnose master,node,client
+	// the options that were set by command invocation
+	Options *options.AllDiagnosticsOptions
+
+	// used to print discovery and diagnostic logs
+	Log *log.Logger
+
+	// do we have enough config to diagnose master,node,client?
+	WillCheck map[Target]bool
+
+	// general system info
+	HasBash      bool                         // for non-Linux clients, will not have bash...
+	HasSystemd   bool                         // not even all Linux has systemd
+	SystemdUnits map[string]types.SystemdUnit // list of relevant units present on system
 
 	// outcome from looking for executables
 	OscPath          string
-	OscVersion       Version
+	OscVersion       types.Version
 	OpenshiftPath    string
-	OpenshiftVersion Version
+	OpenshiftVersion types.Version
 
 	// saved results from client discovery
 	ClientConfigPath    string                          // first client config file found, if any
@@ -32,11 +41,10 @@ type Environment struct {
 	ClusterAdminFactory *osclientcmd.Factory            // factory we will use for cluster-admin access (could easily be nil)
 
 	// saved results from master discovery
-	MasterOptions *mstart.MasterOptions    // user-specified flags or config file
-	MasterConfig  *mconfigapi.MasterConfig // actual config determined from flags/file
+	MasterConfig *mconfigapi.MasterConfig // actual config determined from flags/file
+
 	// saved results from node discovery
-	NodeOptions *mstart.NodeOptions    // user-specified flags or config file
-	NodeConfig  *mconfigapi.NodeConfig // actual config determined from flags/file
+	NodeConfig *mconfigapi.NodeConfig // actual config determined from flags/file
 }
 
 type ContextAccess struct {
@@ -44,10 +52,11 @@ type ContextAccess struct {
 	ClusterAdmin bool // has access to see stuff only cluster-admin should
 }
 
-func NewEnvironment(fl *Flags) *Environment {
+func NewEnvironment(opts *options.AllDiagnosticsOptions, logger *log.Logger) *Environment {
 	return &Environment{
-		Flags:             fl,
-		SystemdUnits:      make(map[string]SystemdUnit),
+		Options:           opts,
+		Log:               logger,
+		SystemdUnits:      make(map[string]types.SystemdUnit),
 		WillCheck:         make(map[Target]bool),
 		FactoryForContext: make(map[string]*osclientcmd.Factory),
 		AccessForContext:  make(map[string]*ContextAccess),
@@ -61,3 +70,11 @@ func (env *Environment) DefaultFactory() *osclientcmd.Factory {
 	}
 	return nil
 }
+
+type Target string
+
+const (
+	ClientTarget Target = "client"
+	MasterTarget Target = "master"
+	NodeTarget   Target = "node"
+)

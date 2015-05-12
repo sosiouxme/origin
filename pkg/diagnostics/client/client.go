@@ -7,27 +7,28 @@ import (
 	//"github.com/kr/pretty"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
+	"github.com/openshift/origin/pkg/diagnostics/discovery"
 	"github.com/openshift/origin/pkg/diagnostics/log"
-	"github.com/openshift/origin/pkg/diagnostics/types"
+	"github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
 )
 
-var Diagnostics = map[string]types.Diagnostic{
+var Diagnostics = map[string]diagnostic.Diagnostic{
 	"NodeDefinitions": {
 		Description: "Check node records on master",
-		Condition: func(env *types.Environment) (skip bool, reason string) {
+		Condition: func(env *discovery.Environment) (skip bool, reason string) {
 			if env.ClusterAdminFactory == nil {
 				return true, "Client does not have cluster-admin access and cannot see node records"
 			}
 			return false, ""
 		},
-		Run: func(env *types.Environment) {
+		Run: func(env *discovery.Environment) {
 			var err error
 			var nodes *kapi.NodeList
 			if _, kclient, err := env.ClusterAdminFactory.Clients(); err == nil {
 				nodes, err = kclient.Nodes().List(labels.LabelSelector{}, fields.Everything())
 			}
 			if err != nil {
-				log.Errorf("clGetNodesFailed", `
+				env.Log.Errorf("clGetNodesFailed", `
 Client error while retrieving node records. Client retrieved records
 during discovery, so this is likely to be a transient error. Try running
 diagnostics again. If this message persists, there may be a permissions
@@ -68,20 +69,20 @@ and any existing scheduled pods will be considered failed and removed.
 						msg["status"] = ready.Status
 						msg["reason"] = ready.Reason
 					}
-					log.Warnm("clNodeBroken", msg)
+					env.Log.Warnm("clNodeBroken", msg)
 				}
 			}
 		},
 	},
 	"ConfigContexts": {
 		Description: "Test that client config contexts have no undefined references",
-		Condition: func(env *types.Environment) (skip bool, reason string) {
+		Condition: func(env *discovery.Environment) (skip bool, reason string) {
 			if env.ClientConfigRaw == nil {
 				return true, "There is no client config file"
 			}
 			return false, ""
 		},
-		Run: func(env *types.Environment) {
+		Run: func(env *discovery.Environment) {
 			cc := env.ClientConfigRaw
 			current := cc.CurrentContext
 			ccSuccess := false
@@ -92,9 +93,9 @@ and any existing scheduled pods will be considered failed and removed.
 				if context == current {
 					ccResult, ccSuccess = msg, success
 				} else if success {
-					log.Infom("clientCfgSuccess", msg)
+					env.Log.Infom("clientCfgSuccess", msg)
 				} else {
-					log.Warnm("clientCfgWarn", msg)
+					env.Log.Warnm("clientCfgWarn", msg)
 				}
 			}
 			if _, exists := cc.Contexts[current]; exists {
@@ -103,12 +104,12 @@ The current context from client config is '{{.context}}'
 This will be used by default to contact your OpenShift server.
 ` + ccResult["tmpl"].(string)
 				if ccSuccess {
-					log.Infom("currentccSuccess", ccResult)
+					env.Log.Infom("currentccSuccess", ccResult)
 				} else {
-					log.Errorm("currentccWarn", ccResult)
+					env.Log.Errorm("currentccWarn", ccResult)
 				}
 			} else { // context does not exist
-				log.Errorm("cConUndef", log.Msg{"tmpl": `
+				env.Log.Errorm("cConUndef", log.Msg{"tmpl": `
 Your client config specifies a current context of '{{.context}}'
 which is not defined; it is likely that a mistake was introduced while
 manually editing your config. If this is a simple typo, you may be

@@ -1,40 +1,46 @@
 package run
 
 import (
-	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
+	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics/options"
+	"github.com/openshift/origin/pkg/cmd/server/start"
 	"github.com/openshift/origin/pkg/diagnostics/client"
 	"github.com/openshift/origin/pkg/diagnostics/discovery"
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/systemd"
-	"github.com/openshift/origin/pkg/diagnostics/types"
+	"github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
 	"os"
 	"strings"
 )
 
-func Diagnose(fl *types.Flags, f *osclientcmd.Factory) {
-	if env, ok := discovery.Run(fl, f); ok { // discovery result can veto continuing
-		allDiags := make(map[string]map[string]types.Diagnostic)
+func Diagnose(opts *options.AllDiagnosticsOptions) {
+	// start output to a log
+	dopts := opts.DiagOptions
+	logger, _ := log.NewLogger(dopts.DiagLevel, dopts.DiagFormat, dopts.Output.Get())
+	// start discovery
+	if env := RunDiscovery(opts, logger); env != nil { // discovery result can veto continuing
+		allDiags := make(map[string]map[string]diagnostic.Diagnostic)
+		// now we will figure out what diagnostics to run based on discovery.
 		for area := range env.WillCheck {
 			switch area {
-			case types.ClientTarget:
+			case discovery.ClientTarget:
 				allDiags["client"] = client.Diagnostics
-			case types.MasterTarget, types.NodeTarget:
+			case discovery.MasterTarget, discovery.NodeTarget:
 				allDiags["systemd"] = systemd.Diagnostics
 			}
 		}
-		if list := env.Flags.Diagnostics; len(list) > 0 {
+		if list := opts.DiagOptions.Diagnostics; len(*list) > 0 {
 			// just run a specific (set of) diagnostic(s)
-			for _, arg := range list {
+			for _, arg := range *list {
 				parts := strings.SplitN(arg, ".", 2)
 				if len(parts) < 2 {
-					log.Noticef("noDiag", `There is no such diagnostic "%s"`, arg)
+					env.Log.Noticef("noDiag", `There is no such diagnostic "%s"`, arg)
 					continue
 				}
 				area, name := parts[0], parts[1]
 				if diagnostics, exists := allDiags[area]; !exists {
-					log.Noticef("noDiag", `There is no such diagnostic "%s"`, arg)
+					env.Log.Noticef("noDiag", `There is no such diagnostic "%s"`, arg)
 				} else if diag, exists := diagnostics[name]; !exists {
-					log.Noticef("noDiag", `There is no such diagnostic "%s"`, arg)
+					env.Log.Noticef("noDiag", `There is no such diagnostic "%s"`, arg)
 				} else {
 					RunDiagnostic(area, name, diag, env)
 				}
@@ -48,33 +54,76 @@ func Diagnose(fl *types.Flags, f *osclientcmd.Factory) {
 			}
 		}
 	}
-	log.Summary()
-	log.Finish()
-	if log.ErrorsSeen() {
+	logger.Summary()
+	logger.Finish()
+	if logger.ErrorsSeen() {
 		os.Exit(255)
 	}
 }
 
-func RunDiagnostic(area string, name string, diag types.Diagnostic, env *types.Environment) {
+// ----------------------------------------------------------
+// Examine system and return findings in an Environment
+func RunDiscovery(adOpts *options.AllDiagnosticsOptions, logger *log.Logger) *discovery.Environment {
+	logger.Notice("discBegin", "Beginning discovery of environment")
+	env := discovery.NewEnvironment(adOpts, logger)
+	env.DiscoverOperatingSystem()
+	if adOpts.MasterOptions != nil || adOpts.NodeOptions != nil {
+		env.DiscoverSystemd()
+	}
+	if mdOpts := adOpts.MasterOptions; mdOpts != nil {
+		if mdOpts.MasterOptions == nil {
+			mdOpts.MasterOptions = &start.MasterOptions{ConfigFile: adOpts.MasterConfigPath}
+			// leaving MasterArgs nil signals it has to be a master config file or nothing.
+		} else if adOpts.MasterConfigPath != "" {
+			mdOpts.MasterOptions.ConfigFile = adOpts.MasterConfigPath
+		}
+		env.DiscoverMaster()
+	}
+	if ndOpts := adOpts.NodeOptions; ndOpts != nil {
+		if ndOpts.NodeOptions == nil {
+			ndOpts.NodeOptions = &start.NodeOptions{ConfigFile: adOpts.NodeConfigPath}
+			// no NodeArgs signals it has to be a node config file or nothing.
+		} else if adOpts.NodeConfigPath != "" {
+			ndOpts.NodeOptions.ConfigFile = adOpts.NodeConfigPath
+		}
+		env.DiscoverNode()
+	}
+	if cdOpts := adOpts.ClientOptions; cdOpts != nil {
+		env.DiscoverClient()
+		env.ReadClientConfigFiles() // so user knows where config is coming from (or not)
+		env.ConfigClient()
+	}
+	checkAny := false
+	for _, check := range env.WillCheck {
+		checkAny = checkAny || check
+	}
+	if !checkAny {
+		logger.Error("discNoChecks", "Cannot find any OpenShift configuration. Please specify which component or configuration you wish to troubleshoot.")
+		return nil
+	}
+	return env
+}
+
+func RunDiagnostic(area string, name string, diag diagnostic.Diagnostic, env *discovery.Environment) {
 	defer func() {
 		// recover from diagnostics that panic so others can still run
 		if r := recover(); r != nil {
-			log.Errorf("diagPanic", "Diagnostic '%s' crashed; this is usually a bug in either diagnostics or OpenShift. Stack trace:\n%+v", name, r)
+			env.Log.Errorf("diagPanic", "Diagnostic '%s' crashed; this is usually a bug in either diagnostics or OpenShift. Stack trace:\n%+v", name, r)
 		}
 	}()
 	if diag.Condition != nil {
 		if skip, reason := diag.Condition(env); skip {
 			if reason == "" {
-				log.Noticem("diagSkip", log.Msg{"area": area, "name": name, "diag": diag.Description,
+				env.Log.Noticem("diagSkip", log.Msg{"area": area, "name": name, "diag": diag.Description,
 					"tmpl": "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}"})
 			} else {
-				log.Noticem("diagSkip", log.Msg{"area": area, "name": name, "diag": diag.Description, "reason": reason,
+				env.Log.Noticem("diagSkip", log.Msg{"area": area, "name": name, "diag": diag.Description, "reason": reason,
 					"tmpl": "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}\nBecause: {{.reason}}"})
 			}
 			return
 		}
 	}
-	log.Noticem("diagRun", log.Msg{"area": area, "name": name, "diag": diag.Description,
+	env.Log.Noticem("diagRun", log.Msg{"area": area, "name": name, "diag": diag.Description,
 		"tmpl": "Running diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}"})
 	diag.Run(env)
 }
