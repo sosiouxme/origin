@@ -360,9 +360,8 @@ osc exec -p ${registry_pod} whoami | grep root
 
 # Diagnostics
 echo "[INFO] Running openshift-diagnostics"
-# show only errors, fail if any errors
-wait_for_command "openshift-diagnostics --config=${OPENSHIFTCONFIG} --master-config=${MASTER_CONFIG_DIR}/master-config.yaml --node-config=${NODE_CONFIG_DIR}/node-config.yaml --diaglevel=0" 60
-wait_for_command "openshift ex diagnostics client --diaglevel=0" 15
+# show only errors, fail if any errors; allow 60s only to prevent spurious failures; this will usually be a few seconds.
+wait_for_command "openshift-diagnostics --master-config=${MASTER_CONFIG_DIR}/master-config.yaml --node-config=${NODE_CONFIG_DIR}/node-config.yaml --diaglevel=0" 60
 
 # Port forwarding
 echo "[INFO] Validating port-forward"
