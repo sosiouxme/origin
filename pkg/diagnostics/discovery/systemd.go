@@ -14,8 +14,7 @@ import (
 func (env *Environment) DiscoverSystemd() {
 	env.Log.Notice("discBegin", "Beginning systemd discovery")
 	for _, name := range []string{"openshift", "openshift-master", "openshift-node", "openshift-sdn-master", "openshift-sdn-node", "docker", "openvswitch", "iptables", "etcd", "kubernetes"} {
-		if unit := discoverSystemdUnit(name, env.Log); unit.Exists {
-			env.SystemdUnits[name] = unit
+		if env.SystemdUnits[name] = discoverSystemdUnit(name, env.Log); env.SystemdUnits[name].Exists {
 			env.Log.Debugm("discUnit", log.Msg{"tmpl": "Saw systemd unit {{.unit}}", "unit": name})
 		}
 	}
