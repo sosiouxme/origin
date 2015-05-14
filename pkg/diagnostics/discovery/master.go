@@ -23,6 +23,7 @@ func (env *Environment) DiscoverMaster() {
 			env.tryStandardMasterConfig() // or give up.
 		} else { // assume user provided flags like actual master.
 			env.tryMasterConfig(true)
+			env.WillCheck[MasterTarget] = true // regardless
 		}
 	}
 	if !env.WillCheck[MasterTarget] {

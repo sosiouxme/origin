@@ -24,6 +24,7 @@ func (env *Environment) DiscoverNode() {
 			env.tryStandardNodeConfig() // or give up.
 		} else { // assume user provided flags like actual node.
 			env.tryNodeConfig(true)
+			env.WillCheck[NodeTarget] = true // regardless
 		}
 	}
 	if !env.WillCheck[NodeTarget] {
