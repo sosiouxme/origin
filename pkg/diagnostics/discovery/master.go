@@ -5,7 +5,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/server/start"
 )
 
-const StandardMasterConfPath string = "/etc/openshift/master.yaml"
+const StandardMasterConfPath string = "/etc/openshift/master/master-config.yaml"
 
 func (env *Environment) DiscoverMaster() {
 	// first, determine if we even have a master config

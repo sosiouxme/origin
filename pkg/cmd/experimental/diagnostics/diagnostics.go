@@ -28,7 +28,7 @@ assumes they are not present and does diagnostics only as a client.
 You may also specify config files explicitly with flags below, in which
 case you will receive an error if they are not found or invalid.
 
-    $ %[1]s --master-config=/etc/openshift/master.yaml
+    $ %[1]s --master-config=/etc/openshift/master/master-config.yaml
 
 Subcommands may be used to scope the troubleshooting to a particular
 component and are not limited to using config files; you can and should
