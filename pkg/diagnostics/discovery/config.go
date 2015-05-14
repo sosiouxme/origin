@@ -15,7 +15,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	//"github.com/openshift/origin/pkg/cmd/util"
 )
 
 /* ----------------------------------------------------------

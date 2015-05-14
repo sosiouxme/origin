@@ -1,7 +1,6 @@
 package discovery
 
 import (
-	//"github.com/kr/pretty"
 	mconfigapilatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
 	"github.com/openshift/origin/pkg/cmd/server/start"
 )

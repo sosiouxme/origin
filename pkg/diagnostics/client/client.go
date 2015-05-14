@@ -4,7 +4,6 @@ import (
 	"fmt"
 	kapi "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	clientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
-	//"github.com/kr/pretty"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 	"github.com/openshift/origin/pkg/diagnostics/discovery"

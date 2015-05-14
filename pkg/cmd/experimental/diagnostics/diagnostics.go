@@ -6,13 +6,9 @@ import (
 	"github.com/openshift/origin/pkg/cmd/server/start"
 	"github.com/openshift/origin/pkg/cmd/templates"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
+	"github.com/openshift/origin/pkg/diagnostics/run"
 	"github.com/spf13/cobra"
 	"io"
-	//"github.com/openshift/origin/pkg/cmd/cli/cmd"
-	//"github.com/openshift/origin/pkg/cmd/cli/config"
-	//"github.com/openshift/origin/pkg/diagnostics/types"
-	//"github.com/openshift/origin/pkg/diagnostics/log"
-	"github.com/openshift/origin/pkg/diagnostics/run"
 )
 
 const longAllDescription = `
