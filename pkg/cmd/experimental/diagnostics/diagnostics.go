@@ -26,7 +26,7 @@ those components. If master/node config files are not found, the tool
 assumes they are not present and does diagnostics only as a client.
 
 You may also specify config files explicitly with flags below, in which
-case you will receive an error if they are not found or invalid.
+case you will receive an error if they are invalid or not found.
 
     $ %[1]s --master-config=/etc/openshift/master/master-config.yaml
 
@@ -35,7 +35,7 @@ component and are not limited to using config files; you can and should
 use the same flags that are actually set on the command line for that
 component to configure the diagnostic.
 
-    $ %[1]s node --master=https://master.openshift.example.com:8443 --cert-dir=...
+    $ %[1]s node --hostname='node.example.com' --kubeconfig=...
 
 NOTE: This is an alpha version of diagnostics and will change significantly.
 NOTE: Global flags (from the 'options' subcommand) are ignored here but
@@ -65,10 +65,10 @@ func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.C
 	   to add those flags to this command (the only client option here is a config
 	   file). So the factory object from client cmd is reused for this command.
 	*/
-	ccmd, factory := NewClientCommand("client", name+" client", out)
+	clientCmd, factory := NewClientCommand("client", name+" client", out)
 	opts.ClientDiagOptions.Factory = factory
 
-	cmd.AddCommand(ccmd)
+	cmd.AddCommand(clientCmd)
 	cmd.AddCommand(NewMasterCommand("master", name+" master", out))
 	cmd.AddCommand(NewNodeCommand("node", name+" node", out))
 	cmd.AddCommand(NewOptionsCommand())
