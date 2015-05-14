@@ -368,48 +368,13 @@ var Diagnostics = map[string]diagnostic.Diagnostic{
 iptables is used by OpenShift nodes for container networking.
 Connections to a container will fail without it.`)
 			unitRequiresUnit(env.Log, u["openshift-node"], u["docker"], `OpenShift nodes use Docker to run containers.`)
-			// TODO: sdn+ovs will probably not be the only implementation - make this generic
-			// Also, it's possible to run an all-in-one with no SDN
-			unitRequiresUnit(env.Log, u["openshift-node"], u["openshift-sdn-node"], `
-The software-defined network (SDN) enables networking between
-containers on different nodes. If it is not running, containers
-on different nodes will not be able to connect to each other.`)
-			unitRequiresUnit(env.Log, u["openshift-sdn-master"], u["openshift-master"], `
-The software-defined network (SDN) enables networking between containers
-on different nodes, coordinated via openshift-sdn-master. It does not
-make sense to run this service unless the host is operating as an
-OpenShift master.`)
-			// TODO: sdn+ovs will probably not be the only implementation - make this generic
-			unitRequiresUnit(env.Log, u["openshift-master"], u["openshift-sdn-master"], `
-The software-defined network (SDN) enables networking between
-containers on different nodes. If it is not running, containers
-on different nodes will not be able to connect to each other.
-openshift-sdn-master is required to provision the SDN subnets.`)
 			unitRequiresUnit(env.Log, u["openshift"], u["docker"], `OpenShift nodes use Docker to run containers.`)
-			unitRequiresUnit(env.Log, u["openshift"], u["iptables"], `
-iptables is used by OpenShift nodes for container networking.
-Connections to a container will fail without it.`)
-			// sdn-node's dependency on node and openvswitch is a special case.
-			// We do not need to enable node/ovs because sdn-node starts them for us.
-			if u["openshift-sdn-node"].Active && !u["openshift-node"].Active {
-				env.Log.Error("sdUnitSDNreqSN", `
-systemd unit openshift-sdn-node is running but openshift-node is not.
-Normally openshift-sdn-node starts openshift-node once initialized.
-It is likely that openshift-node has crashed or been stopped.
-
-An administrator can start openshift-node with:
-
-  # systemctl start openshift-node
-
-To ensure it is not repeatedly failing to run, check the status and logs with:
-
-  # systemctl status openshift-node
-  # journalctl -ru openshift-node `)
-			}
-			if u["openshift-sdn-node"].Active && !u["openvswitch"].Active {
+			// node's dependency on openvswitch is a special case.
+			// We do not need to enable ovs because openshift-node starts it for us.
+			if u["openshift-node"].Active && !u["openvswitch"].Active {
 				env.Log.Error("sdUnitSDNreqOVS", `
-systemd unit openshift-sdn-node is running but openvswitch is not.
-Normally openshift-sdn-node starts openvswitch once initialized.
+systemd unit openshift-node is running but openvswitch is not.
+Normally openshift-node starts openvswitch once initialized.
 It is likely that openvswitch has crashed or been stopped.
 
 The software-defined network (SDN) enables networking between
