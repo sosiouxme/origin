@@ -11,7 +11,7 @@ type NodeDiagnosticsOptions struct {
 	DiagOptions *DiagnosticsOptions
 	MustCheck   bool // set for "diagnostics node" which requires diagnosing node even if there is no config file
 	// reuse the node options from "openshift start node"
-	NodeOptions *start.NodeOptions
+	NodeStartOptions *start.NodeOptions
 }
 
 // definitions used to bind the options to actual flags on a command
@@ -41,5 +41,5 @@ func NewNodeDiagnosticsFlagInfos() *NodeDiagnosticsFlagInfos {
 }
 
 func (o *NodeDiagnosticsOptions) BindFlags(cmdFlags *pflag.FlagSet, flagInfos *NodeDiagnosticsFlagInfos) {
-	flagInfos.ConfigFile.BindStringFlag(cmdFlags, &o.NodeOptions.ConfigFile)
+	flagInfos.ConfigFile.BindStringFlag(cmdFlags, &o.NodeStartOptions.ConfigFile)
 }

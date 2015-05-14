@@ -10,9 +10,9 @@ const StandardNodeConfPath string = "/etc/openshift/node/node-config.yaml"
 
 func (env *Environment) DiscoverNode() {
 	// first, determine if we even have a node config
-	options := env.Options.NodeOptions
+	options := env.Options.NodeDiagOptions
 	if env.Options.NodeConfigPath != "" { // specified node conf, it has to load or we choke
-		options.NodeOptions.NodeArgs = start.NewDefaultNodeArgs() // and don't set any args
+		options.NodeStartOptions.NodeArgs = start.NewDefaultNodeArgs() // and don't set any args
 		if env.tryNodeConfig(true) {
 			env.WillCheck[NodeTarget] = true
 		}
@@ -32,7 +32,7 @@ func (env *Environment) DiscoverNode() {
 }
 
 func (env *Environment) tryNodeConfig(errOnFail bool) bool {
-	options := env.Options.NodeOptions.NodeOptions
+	options := env.Options.NodeDiagOptions.NodeStartOptions
 	//pretty.Println("nodeconfig options are:", options)
 	logOnFail := env.Log.Debugf
 	if errOnFail {
@@ -65,7 +65,7 @@ func (env *Environment) tryNodeConfig(errOnFail bool) bool {
 
 func (env *Environment) tryStandardNodeConfig() (worked bool) {
 	env.Log.Debug("discNCnoflags", "No node config flags specified, will try standard config location")
-	options := env.Options.NodeOptions.NodeOptions
+	options := env.Options.NodeDiagOptions.NodeStartOptions
 	options.ConfigFile = StandardNodeConfPath
 	options.NodeArgs = start.NewDefaultNodeArgs()
 	if env.tryNodeConfig(false) {

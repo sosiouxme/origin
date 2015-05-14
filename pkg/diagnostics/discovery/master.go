@@ -9,9 +9,9 @@ const StandardMasterConfPath string = "/etc/openshift/master.yaml"
 
 func (env *Environment) DiscoverMaster() {
 	// first, determine if we even have a master config
-	options := env.Options.MasterOptions
+	options := env.Options.MasterDiagOptions
 	if env.Options.MasterConfigPath != "" { // specified master conf, it has to load or we choke
-		options.MasterOptions.MasterArgs = start.NewDefaultMasterArgs() // and don't set any args
+		options.MasterStartOptions.MasterArgs = start.NewDefaultMasterArgs() // and don't set any args
 		if env.tryMasterConfig(true) {
 			env.WillCheck[MasterTarget] = true
 		}
@@ -31,7 +31,7 @@ func (env *Environment) DiscoverMaster() {
 }
 
 func (env *Environment) tryMasterConfig(errOnFail bool) bool {
-	options := env.Options.MasterOptions.MasterOptions
+	options := env.Options.MasterDiagOptions.MasterStartOptions
 	logOnFail := env.Log.Debugf
 	if errOnFail {
 		logOnFail = env.Log.Errorf
@@ -63,7 +63,7 @@ func (env *Environment) tryMasterConfig(errOnFail bool) bool {
 
 func (env *Environment) tryStandardMasterConfig() (worked bool) {
 	env.Log.Debug("discMCnoflags", "No master config flags specified, will try standard config location")
-	options := env.Options.MasterOptions.MasterOptions
+	options := env.Options.MasterDiagOptions.MasterStartOptions
 	options.ConfigFile = StandardMasterConfPath
 	options.MasterArgs = start.NewDefaultMasterArgs()
 	if env.tryMasterConfig(false) {

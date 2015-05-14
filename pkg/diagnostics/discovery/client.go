@@ -15,7 +15,7 @@ import (
 // Look for 'osc' and 'openshift' executables
 func (env *Environment) DiscoverClient() error {
 	var err error
-	f := env.Options.ClientOptions.Factory
+	f := env.Options.ClientDiagOptions.Factory
 	if config, err := f.OpenShiftClientConfig.RawConfig(); err != nil {
 		env.Log.Errorf("discCCstart", "Could not read client config: (%T) %[1]v", err)
 	} else {

@@ -11,7 +11,7 @@ type MasterDiagnosticsOptions struct {
 	DiagOptions *DiagnosticsOptions
 	MustCheck   bool // set for "diagnostics master" which requires diagnosing master even if there is no config file
 	// reuse the master options from "openshift start master"
-	MasterOptions *start.MasterOptions
+	MasterStartOptions *start.MasterOptions
 }
 
 // definitions used to bind the options to actual flags on a command
@@ -41,5 +41,5 @@ func NewMasterDiagnosticsFlagInfos() *MasterDiagnosticsFlagInfos {
 }
 
 func (o *MasterDiagnosticsOptions) BindFlags(cmdFlags *pflag.FlagSet, flagInfos *MasterDiagnosticsFlagInfos) {
-	flagInfos.ConfigFile.BindStringFlag(cmdFlags, &o.MasterOptions.ConfigFile)
+	flagInfos.ConfigFile.BindStringFlag(cmdFlags, &o.MasterStartOptions.ConfigFile)
 }

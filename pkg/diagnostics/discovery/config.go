@@ -77,7 +77,7 @@ with the --%[1]s flag, or just not specify the flag.
 	} else { // not found, decide what to do
 		if confFlag != "" { // user expected conf file at specific place
 			env.Log.Errorf("discNoCC", "The client configuration file was not found where --%s='%s' indicated.", confFlagName, confFlag)
-		} else if !env.Options.ClientOptions.MustCheck {
+		} else if !env.Options.ClientDiagOptions.MustCheck {
 			env.Log.Notice("discSkipCLI", "No client config file found; client diagnostics will not be performed.")
 		} else {
 			// user specifically wants to troubleshoot client, but not with a conf file

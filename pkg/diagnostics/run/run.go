@@ -67,28 +67,28 @@ func RunDiscovery(adOpts *options.AllDiagnosticsOptions, logger *log.Logger) *di
 	logger.Notice("discBegin", "Beginning discovery of environment")
 	env := discovery.NewEnvironment(adOpts, logger)
 	env.DiscoverOperatingSystem()
-	if adOpts.MasterOptions != nil || adOpts.NodeOptions != nil {
+	if adOpts.MasterDiagOptions != nil || adOpts.NodeDiagOptions != nil {
 		env.DiscoverSystemd()
 	}
-	if mdOpts := adOpts.MasterOptions; mdOpts != nil {
-		if mdOpts.MasterOptions == nil {
-			mdOpts.MasterOptions = &start.MasterOptions{ConfigFile: adOpts.MasterConfigPath}
+	if mdOpts := adOpts.MasterDiagOptions; mdOpts != nil {
+		if mdOpts.MasterStartOptions == nil {
+			mdOpts.MasterStartOptions = &start.MasterOptions{ConfigFile: adOpts.MasterConfigPath}
 			// leaving MasterArgs nil signals it has to be a master config file or nothing.
 		} else if adOpts.MasterConfigPath != "" {
-			mdOpts.MasterOptions.ConfigFile = adOpts.MasterConfigPath
+			mdOpts.MasterStartOptions.ConfigFile = adOpts.MasterConfigPath
 		}
 		env.DiscoverMaster()
 	}
-	if ndOpts := adOpts.NodeOptions; ndOpts != nil {
-		if ndOpts.NodeOptions == nil {
-			ndOpts.NodeOptions = &start.NodeOptions{ConfigFile: adOpts.NodeConfigPath}
+	if ndOpts := adOpts.NodeDiagOptions; ndOpts != nil {
+		if ndOpts.NodeStartOptions == nil {
+			ndOpts.NodeStartOptions = &start.NodeOptions{ConfigFile: adOpts.NodeConfigPath}
 			// no NodeArgs signals it has to be a node config file or nothing.
 		} else if adOpts.NodeConfigPath != "" {
-			ndOpts.NodeOptions.ConfigFile = adOpts.NodeConfigPath
+			ndOpts.NodeStartOptions.ConfigFile = adOpts.NodeConfigPath
 		}
 		env.DiscoverNode()
 	}
-	if cdOpts := adOpts.ClientOptions; cdOpts != nil {
+	if cdOpts := adOpts.ClientDiagOptions; cdOpts != nil {
 		env.DiscoverClient()
 		env.ReadClientConfigFiles() // so user knows where config is coming from (or not)
 		env.ConfigClient()

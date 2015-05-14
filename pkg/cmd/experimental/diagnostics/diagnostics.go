@@ -70,7 +70,7 @@ func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.C
 	   file). So the factory object from client cmd is reused for this command.
 	*/
 	ccmd, factory := NewClientCommand("client", name+" client", out)
-	opts.ClientOptions.Factory = factory
+	opts.ClientDiagOptions.Factory = factory
 
 	cmd.AddCommand(ccmd)
 	cmd.AddCommand(NewMasterCommand("master", name+" master", out))
@@ -98,9 +98,9 @@ func NewClientCommand(name string, fullName string, out io.Writer) (*cobra.Comma
 		Long:  fmt.Sprintf(longClientDescription, fullName),
 		Run: func(c *cobra.Command, args []string) {
 			run.Diagnose(&options.AllDiagnosticsOptions{
-				ClientOptions: opts,
-				DiagOptions:   opts.DiagOptions,
-				GlobalFlags:   c.PersistentFlags(),
+				ClientDiagOptions: opts,
+				DiagOptions:       opts.DiagOptions,
+				GlobalFlags:       c.PersistentFlags(),
 			})
 		},
 	}
@@ -133,15 +133,15 @@ func NewMasterCommand(name string, fullName string, out io.Writer) *cobra.Comman
 		Long:  fmt.Sprintf(longMasterDescription, fullName),
 		Run: func(c *cobra.Command, args []string) {
 			run.Diagnose(&options.AllDiagnosticsOptions{
-				MasterOptions: opts,
-				DiagOptions:   opts.DiagOptions,
-				GlobalFlags:   c.PersistentFlags(),
+				MasterDiagOptions: opts,
+				DiagOptions:       opts.DiagOptions,
+				GlobalFlags:       c.PersistentFlags(),
 			})
 		},
 	}
 	cmd.SetOutput(out) // for output re: usage / help
 	opts.MustCheck = true
-	opts.MasterOptions = &start.MasterOptions{MasterArgs: start.MasterArgsAndFlags(cmd.Flags())}
+	opts.MasterStartOptions = &start.MasterOptions{MasterArgs: start.MasterArgsAndFlags(cmd.Flags())}
 	opts.BindFlags(cmd.Flags(), options.NewMasterDiagnosticsFlagInfos())
 	opts.DiagOptions.BindFlags(cmd.Flags(), options.NewDiagnosticsFlagInfos())
 
@@ -168,15 +168,15 @@ func NewNodeCommand(name string, fullName string, out io.Writer) *cobra.Command 
 		Long:  fmt.Sprintf(longNodeDescription, fullName),
 		Run: func(c *cobra.Command, args []string) {
 			run.Diagnose(&options.AllDiagnosticsOptions{
-				NodeOptions: opts,
-				DiagOptions: opts.DiagOptions,
-				GlobalFlags: c.PersistentFlags(),
+				NodeDiagOptions: opts,
+				DiagOptions:     opts.DiagOptions,
+				GlobalFlags:     c.PersistentFlags(),
 			})
 		},
 	}
 	cmd.SetOutput(out) // for output re: usage / help
 	opts.MustCheck = true
-	opts.NodeOptions = &start.NodeOptions{NodeArgs: start.NodeArgsAndFlags(cmd.Flags())}
+	opts.NodeStartOptions = &start.NodeOptions{NodeArgs: start.NodeArgsAndFlags(cmd.Flags())}
 	opts.BindFlags(cmd.Flags(), options.NewNodeDiagnosticsFlagInfos())
 	opts.DiagOptions.BindFlags(cmd.Flags(), options.NewDiagnosticsFlagInfos())
 

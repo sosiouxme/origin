@@ -7,13 +7,13 @@ import (
 
 // user options for openshift-diagnostics main command
 type AllDiagnosticsOptions struct {
-	DiagOptions      *DiagnosticsOptions
-	ClientOptions    *ClientDiagnosticsOptions
-	MasterOptions    *MasterDiagnosticsOptions
-	NodeOptions      *NodeDiagnosticsOptions
-	ClientConfigPath string
-	MasterConfigPath string
-	NodeConfigPath   string
+	DiagOptions       *DiagnosticsOptions
+	ClientDiagOptions *ClientDiagnosticsOptions
+	MasterDiagOptions *MasterDiagnosticsOptions
+	NodeDiagOptions   *NodeDiagnosticsOptions
+	ClientConfigPath  string
+	MasterConfigPath  string
+	NodeConfigPath    string
 
 	// there are cases where discovery has to look up flags created indirectly
 	GlobalFlags *pflag.FlagSet
@@ -30,10 +30,10 @@ func NewAllDiagnosticsOptions(out io.Writer) *AllDiagnosticsOptions {
 	common := NewDiagnosticsOptions(out)
 
 	return &AllDiagnosticsOptions{
-		DiagOptions:   common,
-		ClientOptions: NewClientDiagnosticsOptions(nil, common),
-		MasterOptions: NewMasterDiagnosticsOptions(nil, common),
-		NodeOptions:   NewNodeDiagnosticsOptions(nil, common),
+		DiagOptions:       common,
+		ClientDiagOptions: NewClientDiagnosticsOptions(nil, common),
+		MasterDiagOptions: NewMasterDiagnosticsOptions(nil, common),
+		NodeDiagOptions:   NewNodeDiagnosticsOptions(nil, common),
 	}
 }
 
