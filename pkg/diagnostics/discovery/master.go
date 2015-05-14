@@ -31,7 +31,7 @@ func (env *Environment) DiscoverMaster() {
 	}
 }
 
-func (env *Environment) tryMasterConfig(errOnFail bool) bool {
+func (env *Environment) tryMasterConfig(errOnFail bool) bool /* worked? */ {
 	options := env.Options.MasterDiagOptions.MasterStartOptions
 	logOnFail := env.Log.Debugf
 	if errOnFail {
@@ -52,6 +52,7 @@ func (env *Environment) tryMasterConfig(errOnFail bool) bool {
 			return false
 		}
 		env.Log.Infof("discMCfound", "Found a master config file:\n%[1]s", path)
+		return true
 	} else {
 		if env.MasterConfig, err = options.MasterArgs.BuildSerializeableMasterConfig(); err != nil {
 			logOnFail("discMCopts", "Could not build a master config from flags:\n(%T) %[1]v", err)
@@ -62,7 +63,7 @@ func (env *Environment) tryMasterConfig(errOnFail bool) bool {
 	return false
 }
 
-func (env *Environment) tryStandardMasterConfig() (worked bool) {
+func (env *Environment) tryStandardMasterConfig() bool /* worked? */ {
 	env.Log.Debug("discMCnoflags", "No master config flags specified, will try standard config location")
 	options := env.Options.MasterDiagOptions.MasterStartOptions
 	options.ConfigFile = StandardMasterConfPath

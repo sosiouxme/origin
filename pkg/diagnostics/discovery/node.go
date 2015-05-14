@@ -31,7 +31,7 @@ func (env *Environment) DiscoverNode() {
 	}
 }
 
-func (env *Environment) tryNodeConfig(errOnFail bool) bool {
+func (env *Environment) tryNodeConfig(errOnFail bool) bool /* worked */ {
 	options := env.Options.NodeDiagOptions.NodeStartOptions
 	//pretty.Println("nodeconfig options are:", options)
 	logOnFail := env.Log.Debugf
@@ -53,6 +53,7 @@ func (env *Environment) tryNodeConfig(errOnFail bool) bool {
 			return false
 		}
 		env.Log.Infof("discNCfound", "Found a node config file:\n%[1]s", path)
+		return true
 	} else {
 		if env.NodeConfig, err = options.NodeArgs.BuildSerializeableNodeConfig(); err != nil {
 			logOnFail("discNCopts", "Could not build a node config from flags:\n(%T) %[1]v", err)
@@ -63,7 +64,7 @@ func (env *Environment) tryNodeConfig(errOnFail bool) bool {
 	return false
 }
 
-func (env *Environment) tryStandardNodeConfig() (worked bool) {
+func (env *Environment) tryStandardNodeConfig() bool /*worked*/ {
 	env.Log.Debug("discNCnoflags", "No node config flags specified, will try standard config location")
 	options := env.Options.NodeDiagOptions.NodeStartOptions
 	options.ConfigFile = StandardNodeConfPath
