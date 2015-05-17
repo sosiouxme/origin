@@ -3,12 +3,18 @@ package client
 import (
 	"fmt"
 	kapi "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
+	kerrs "github.com/GoogleCloudPlatform/kubernetes/pkg/api/errors"
+	client "github.com/GoogleCloudPlatform/kubernetes/pkg/client"
 	clientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
+	osclient "github.com/openshift/origin/pkg/client"
 	"github.com/openshift/origin/pkg/diagnostics/discovery"
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
+	osapi "github.com/openshift/origin/pkg/image/api"
+	"reflect"
+	"strings"
 )
 
 var Diagnostics = map[string]diagnostic.Diagnostic{
@@ -73,6 +79,7 @@ and any existing scheduled pods will be considered failed and removed.
 			}
 		},
 	},
+
 	"ConfigContexts": {
 		Description: "Test that client config contexts have no undefined references",
 		Condition: func(env *discovery.Environment) (skip bool, reason string) {
@@ -118,6 +125,37 @@ useful to use this as a base if available.`, "context": current})
 			}
 		},
 	},
+
+	"ClusterRegistry": {
+		Description: "Check there is a working Docker registry",
+		Condition: func(env *discovery.Environment) (skip bool, reason string) {
+			if env.ClusterAdminFactory == nil {
+				return true, "Client does not have cluster-admin access and cannot see registry objects"
+			}
+			return false, ""
+		},
+		Run: func(env *discovery.Environment) {
+			osClient, kclient, err := env.ClusterAdminFactory.Clients()
+			if err != nil {
+				env.Log.Errorf("clGetClientFailed", "Constructing clients failed. This should never happen. Error: (%T) %[1]v", err)
+				return
+			}
+			// retrieve the service if it exists
+			if service := getRegistryService(kclient, env.Log); service != nil {
+				// Check that it actually has a pod selected that's running
+				if pod := getRegistryPod(kclient, service, env.Log); pod != nil {
+					// Check that an endpoint exists on the service
+					if endPoint := getRegistryEndpoint(kclient, env.Log); endPoint != nil {
+						// TODO: Check that endpoints on the service match the pod (hasn't been a problem yet though)
+						// TODO: Check the logs for that pod for common issues (credentials, DNS resolution failure)
+						// attempt to create an imagestream and see if it gets the same registry service IP from the service cache
+						testRegistryImageStream(osClient, service, env.Log)
+					}
+				}
+			}
+
+		},
+	},
 }
 
 func TestContext(contextName string, config *clientcmdapi.Config) (result string, success bool) {
@@ -143,4 +181,113 @@ func TestContext(contextName string, config *clientcmdapi.Config) (result string
 The server URL is '%s'
 The user authentication is '%s'
 The current project is '%s'`, cluster.Server, authName, project), true
+}
+
+func getRegistryService(kclient *client.Client, logger *log.Logger) *kapi.Service {
+	service, err := kclient.Services("default").Get("docker-registry")
+	if err != nil && reflect.TypeOf(err) == reflect.TypeOf(&kerrs.StatusError{}) {
+		logger.Warnf("clGetRegFailed", `
+There is no "docker-registry" service. This is not strictly required
+to use OpenShift, however it is required for builds and its absence
+probably indicates an incomplete installation of OpenShift.
+
+Please use the 'osadm registry' command to create a registry.
+				`)
+		return nil
+	} else if err != nil {
+		logger.Errorf("clGetRegFailed", `
+Client error while retrieving registry service. Client retrieved records
+during discovery, so this is likely to be a transient error. Try running
+diagnostics again. If this message persists, there may be a permissions
+problem with getting records. The error was:
+
+(%T) %[1]v`, err)
+		return nil
+	}
+	logger.Debugf("clRegFound", "Found docker-registry service with ports %v", service.Spec.Ports)
+	return service
+}
+
+func getRegistryPod(kclient *client.Client, service *kapi.Service, logger *log.Logger) *kapi.Pod {
+	pods, err := kclient.Pods("default").List(labels.SelectorFromSet(service.Spec.Selector), fields.Everything())
+	if err != nil {
+		logger.Errorf("clRegListPods", "Finding pods for 'docker-registry' service failed. This should never happen. Error: (%T) %[1]v", err)
+		return nil
+	} else if len(pods.Items) < 1 {
+		logger.Error("clRegNoPods", `
+The "docker-registry" service exists but has no associated pods, so it
+is not available. Builds and deployments that use the registry will fail.`)
+		return nil
+	} else if len(pods.Items) > 1 {
+		logger.Error("clRegNoPods", `
+The "docker-registry" service has multiple associated pods. Load-balanced
+registries are not yet available, so these are likely to have incomplete
+stores of images. Builds and deployments that use the registry will
+fail sporadically.`)
+		return nil
+	}
+	pod := &pods.Items[0]
+	if pod.Status.Phase != kapi.PodRunning {
+		logger.Errorf("clRegPodDown", `
+The "%s" pod for the "docker-registry" service is not running.
+This may be transient, a scheduling error, or something else.
+Builds and deployments that require the registry will fail.`, pod.ObjectMeta.Name)
+		return nil
+	}
+	logger.Debugf("clRegPodFound", "Found docker-registry pod with name %s", pod.ObjectMeta.Name)
+	return pod
+}
+
+func getRegistryEndpoint(kclient *client.Client, logger *log.Logger) *kapi.Endpoints {
+	endPoint, err := kclient.Endpoints("default").Get("docker-registry")
+	if err != nil {
+		logger.Errorf("clRegGetEP", "Finding endpoints for 'docker-registry' service failed. This should never happen. Error: (%T) %[1]v", err)
+		return nil
+	} else if len(endPoint.Subsets) != 1 || len(endPoint.Subsets[0].Addresses) != 1 {
+		logger.Warn("clRegNoEP", `
+The "docker-registry" service exists with one associated pod, but the
+number of endpoints in the "docker-registry" endpoint object does not
+match. This mismatch probably indicates a bug in OpenShift and it is
+likely that builds and deployments that require the registry will fail.`)
+		return nil
+	}
+	logger.Debugf("clRegPodFound", "Found docker-registry endpoint object")
+	return endPoint
+}
+
+func testRegistryImageStream(client *osclient.Client, service *kapi.Service, logger *log.Logger) {
+	imgStream, err := client.ImageStreams("default").Create(&osapi.ImageStream{ObjectMeta: kapi.ObjectMeta{GenerateName: "diagnostic-test-"}})
+	if err != nil {
+		logger.Errorf("clRegISCFail", "Creating test ImageStream failed. Error: (%T) %[1]v", err)
+		return
+	}
+	defer client.ImageStreams("default").Delete(imgStream.ObjectMeta.Name)         // TODO: report if deleting fails
+	imgStream, err = client.ImageStreams("default").Get(imgStream.ObjectMeta.Name) // status is filled in post-create
+	if err != nil {
+		logger.Errorf("clRegISCFail", "Getting created test ImageStream failed. Error: (%T) %[1]v", err)
+		return
+	}
+	logger.Debugf("clRegISC", "Created test ImageStream: %[1]v", imgStream)
+	cacheHost := strings.SplitN(imgStream.Status.DockerImageRepository, "/", 2)[0]
+	serviceHost := fmt.Sprintf("%s:%d", service.Spec.PortalIP, service.Spec.Ports[0].Port)
+	if cacheHost != serviceHost {
+		logger.Errorm("clRegISMismatch", log.Msg{
+			"serviceHost": serviceHost,
+			"cacheHost":   cacheHost,
+			"tmpl": `
+Diagnostics created a test ImageStream and compared the registry IP
+it received to the registry IP available via the docker-registry service.
+
+docker-registry      : {{.serviceHost}}
+ImageStream registry : {{.cacheHost}}
+
+They differ, which probably means that an administrator re-created
+the docker-registry service but the master has cached the old service
+IP address. Builds or deployments that use ImageStreams with the wrong
+docker-registry IP will fail under this condition.
+
+To resolve this issue, restarting the master (to clear the cache) should
+be sufficient.
+`})
+	}
 }
