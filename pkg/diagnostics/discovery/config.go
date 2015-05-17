@@ -79,17 +79,17 @@ with the --%[1]s flag, or just not specify the flag.
 		} else if !env.Options.ClientDiagOptions.MustCheck {
 			env.Log.Notice("discSkipCLI", "No client config file found; client diagnostics will not be performed.")
 		} else {
-			// user specifically wants to troubleshoot client, but not with a conf file
+			// user specifically wants to troubleshoot client, but no conf file given
 			env.Log.Warn("discNoCCfile", "No client config file read; OpenShift client diagnostics will use flags and default configuration.")
 			env.WillCheck[ClientTarget] = true
 			adminPaths := []string{
-				"/var/lib/openshift/openshift.certificates.d/admin/.kubeconfig", // enterprise
-				"/openshift.certificates.d/admin/.kubeconfig",                   // origin systemd
-				"./openshift.certificates.d/admin/.kubeconfig",                  // origin binary
+				"/etc/openshift/master/admin.kubeconfig",           // enterprise
+				"/openshift.local.config/master/admin.kubeconfig",  // origin systemd
+				"./openshift.local.config/master/admin.kubeconfig", // origin binary
 			}
 			adminWarningF := `
 No client config file was available; however, one exists at
-  %s
+  %[1]s
 which is a standard location where the master generates it.
 If this is what you want to use, you should copy it to a standard location
 (~/.config/openshift/.config, or the current directory), or you can set the
