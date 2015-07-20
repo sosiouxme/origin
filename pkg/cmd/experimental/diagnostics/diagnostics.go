@@ -27,7 +27,7 @@ func init() {
 	AvailableOverallDiagnostics.Insert(AvailableNodeDiagnostics.List()...)
 }
 
-type OverallDiagnosticsOptions struct {
+type DiagnosticsOptions struct {
 	RequestedDiagnostics util.StringList
 
 	MasterConfigLocation string
@@ -71,7 +71,7 @@ can be used with subcommands.
 `
 
 func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.Command {
-	o := &OverallDiagnosticsOptions{
+	o := &DiagnosticsOptions{
 		RequestedDiagnostics: AvailableOverallDiagnostics.List(),
 		LogOptions:           &log.LoggerOptions{Out: out},
 	}
@@ -102,15 +102,12 @@ func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.C
 	diagnosticflags.BindLoggerOptionFlags(cmd.Flags(), o.LogOptions, diagnosticflags.RecommendedLoggerOptionFlags())
 	diagnosticflags.BindDiagnosticFlag(cmd.Flags(), &o.RequestedDiagnostics, diagnosticflags.NewRecommendedDiagnosticFlag())
 
-	cmd.AddCommand(NewClientCommand(ClientDiagnosticsRecommendedName, name+" "+ClientDiagnosticsRecommendedName, out))
-	cmd.AddCommand(NewMasterCommand(MasterDiagnosticsRecommendedName, name+" "+MasterDiagnosticsRecommendedName, out))
-	cmd.AddCommand(NewNodeCommand(NodeDiagnosticsRecommendedName, name+" "+NodeDiagnosticsRecommendedName, out))
 	cmd.AddCommand(NewOptionsCommand())
 
 	return cmd
 }
 
-func (o *OverallDiagnosticsOptions) Complete() error {
+func (o *DiagnosticsOptions) Complete() error {
 	var err error
 	o.Logger, err = o.LogOptions.NewLogger()
 	if err != nil {
@@ -120,7 +117,7 @@ func (o *OverallDiagnosticsOptions) Complete() error {
 	return nil
 }
 
-func (o OverallDiagnosticsOptions) RunDiagnostics() (bool, error) {
+func (o DiagnosticsOptions) RunDiagnostics() (bool, error) {
 	failed := false
 	errors := []error{}
 
@@ -145,7 +142,7 @@ func (o OverallDiagnosticsOptions) RunDiagnostics() (bool, error) {
 	return failed, kutilerrors.NewAggregate(errors)
 }
 
-func (o OverallDiagnosticsOptions) CheckClient() (bool, error) {
+func (o DiagnosticsOptions) CheckClient() (bool, error) {
 	runClientChecks := true
 
 	_, kubeClient, err := o.Factory.Clients()
@@ -173,7 +170,7 @@ func (o OverallDiagnosticsOptions) CheckClient() (bool, error) {
 	return false, nil
 }
 
-func (o OverallDiagnosticsOptions) CheckNode() (bool, error) {
+func (o DiagnosticsOptions) CheckNode() (bool, error) {
 	if len(o.NodeConfigLocation) == 0 {
 		if _, err := os.Stat(StandardNodeConfigPath); !os.IsNotExist(err) {
 			o.NodeConfigLocation = StandardNodeConfigPath
@@ -194,7 +191,7 @@ func (o OverallDiagnosticsOptions) CheckNode() (bool, error) {
 	return false, nil
 }
 
-func (o OverallDiagnosticsOptions) CheckMaster() (bool, error) {
+func (o DiagnosticsOptions) CheckMaster() (bool, error) {
 	if len(o.MasterConfigLocation) == 0 {
 		if _, err := os.Stat(StandardMasterConfigPath); !os.IsNotExist(err) {
 			o.MasterConfigLocation = StandardMasterConfigPath
