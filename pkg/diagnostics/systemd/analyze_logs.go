@@ -9,7 +9,6 @@ import (
 
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
-	"github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
 )
 
 // AnalyzeLogs
@@ -22,19 +21,19 @@ type AnalyzeLogs struct {
 func (d AnalyzeLogs) Description() string {
 	return "Check for problems in systemd service logs since each service last started"
 }
+
 func (d AnalyzeLogs) CanRun() (bool, error) {
 	return true, nil
 }
-func (d AnalyzeLogs) Check() (bool, []log.Message, []error, []error) {
-	infos := []log.Message{}
-	warnings := []error{}
-	errors := []error{}
+
+func (d AnalyzeLogs) Check() *types.DiagnosticResult {
+	r := &types.DiagnosticResult{}
 
 	for _, unit := range unitLogSpecs {
 		if svc := d.SystemdUnits[unit.Name]; svc.Enabled || svc.Active {
 			checkMessage := log.Message{ID: "sdCheckLogs", EvaluatedText: fmt.Sprintf("Checking journalctl logs for '%s' service", unit.Name)}
 			d.Log.LogMessage(log.InfoLevel, checkMessage)
-			infos = append(infos, checkMessage)
+			r.Log(checkMessage)
 
 			cmd := exec.Command("journalctl", "-ru", unit.Name, "--output=json")
 			// JSON comes out of journalctl one line per record
@@ -50,11 +49,9 @@ func (d AnalyzeLogs) Check() (bool, []log.Message, []error, []error) {
 			}(cmd)
 
 			if err != nil {
-				diagnosticError := diagnostic.NewDiagnosticError("sdLogReadErr", fmt.Sprintf(sdLogReadErr, unit.Name, errStr(err)), err)
+				diagnosticError := types.NewDiagnosticError("sdLogReadErr", fmt.Sprintf(sdLogReadErr, unit.Name, errStr(err)), err)
 				d.Log.Error(diagnosticError.ID, diagnosticError.Explanation)
-				errors = append(errors, diagnosticError)
-
-				return false, infos, warnings, errors
+				return r.Error(diagnosticError)
 			}
 			defer func() { // close out pipe once done reading
 				reader.Close()
@@ -79,31 +76,24 @@ func (d AnalyzeLogs) Check() (bool, []log.Message, []error, []error) {
 						if strings := match.Regexp.FindStringSubmatch(entry.Message); strings != nil {
 							// if matches: print interpretation, remove from matchCopy, and go on to next log entry
 							keep := match.KeepAfterMatch
-							if match.Interpret != nil {
-								currKeep, currInfos, currWarnings, currErrors := match.Interpret(d.Log, &entry, strings)
+							if match.Interpret != nil { // apply custom logic
+								currKeep, result := match.Interpret(d.Log, &entry, strings)
 								keep = currKeep
-								infos = append(infos, currInfos...)
-								warnings = append(warnings, currWarnings...)
-								errors = append(errors, currErrors...)
-
-							} else {
+								r.Append(result)
+							} else { // apply generic match processing
 								text := fmt.Sprintf("Found '%s' journald log message:\n  %s\n", unit.Name, entry.Message) + match.Interpretation
 								message := log.Message{ID: match.Id, EvaluatedText: text, TemplateData: map[string]string{"unit": unit.Name, "logMsg": entry.Message}}
 								d.Log.LogMessage(match.Level, message)
-								diagnosticError := diagnostic.NewDiagnosticError(match.Id, text, nil)
+								diagnosticError := types.NewDiagnosticError(match.Id, text, nil)
 
 								switch match.Level {
 								case log.InfoLevel, log.NoticeLevel:
-									infos = append(infos, message)
-
+									r.Log(message)
 								case log.WarnLevel:
-									warnings = append(warnings, diagnosticError)
-
+									r.Warn(diagnosticError)
 								case log.ErrorLevel:
-									errors = append(errors, diagnosticError)
-
+									r.Error(diagnosticError)
 								}
-
 							}
 
 							if !keep { // remove matcher once seen
@@ -118,7 +108,7 @@ func (d AnalyzeLogs) Check() (bool, []log.Message, []error, []error) {
 		}
 	}
 
-	return (len(errors) == 0), infos, warnings, errors
+	return r
 }
 
 const (

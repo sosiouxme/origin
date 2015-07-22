@@ -1,5 +1,8 @@
 package client
 
+// The purpose of this diagnostic is to detect nodes that are out of commission
+// (which may affect the ability to schedule pods) for user awareness.
+
 import (
 	"errors"
 	"fmt"
@@ -10,7 +13,7 @@ import (
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 	"github.com/openshift/origin/pkg/diagnostics/log"
-	"github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
+	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 const (
@@ -30,6 +33,16 @@ to the master with the same hostname.
 While in this state, pods should not be scheduled to deploy on the node,
 and any existing scheduled pods will be considered failed and removed.
 `
+
+	nodeNotSched = `Node {{.node}} is ready but is marked Unschedulable.
+This is usually set manually for administrative reasons.
+An administrator can mark the node schedulable with:
+    oadm manage-node {{.node}} --schedulable=true
+
+While in this state, pods should not be scheduled to deploy on the node.
+Existing pods will continue to run until completed or evacuated (see
+other options for 'oadm manage-node').
+`
 )
 
 // NodeDefinitions
@@ -42,39 +55,37 @@ type NodeDefinition struct {
 func (d NodeDefinition) Description() string {
 	return "Check node records on master"
 }
+
 func (d NodeDefinition) CanRun() (bool, error) {
 	if d.KubeClient == nil {
-		// TODO make prettier?
 		return false, errors.New("must have kube client")
 	}
 	if _, err := d.KubeClient.Nodes().List(labels.LabelSelector{}, fields.Everything()); err != nil {
 		// TODO check for 403 to return: "Client does not have cluster-admin access and cannot see node records"
 
-		return false, diagnostic.NewDiagnosticError("clGetNodesFailed", fmt.Sprintf(clientErrorGettingNodes, err), err)
+		return false, types.NewDiagnosticError("clGetNodesFailed", fmt.Sprintf(clientErrorGettingNodes, err), err)
 	}
 
 	return true, nil
 }
-func (d NodeDefinition) Check() (bool, []log.Message, []error, []error) {
-	if _, err := d.CanRun(); err != nil {
-		return false, nil, nil, []error{err}
-	}
+
+func (d NodeDefinition) Check() *types.DiagnosticResult {
+	r := &types.DiagnosticResult{}
 
 	nodes, err := d.KubeClient.Nodes().List(labels.LabelSelector{}, fields.Everything())
 	if err != nil {
-		return false, nil, nil, []error{
-			diagnostic.NewDiagnosticError("clGetNodesFailed", fmt.Sprintf(clientErrorGettingNodes, err), err),
-		}
+		return r.Error(types.NewDiagnosticError("clGetNodesFailed",
+			fmt.Sprintf(clientErrorGettingNodes, err), err))
 	}
 
+	anyNodesAvail := false
 	for _, node := range nodes.Items {
 		var ready *kapi.NodeCondition
 		for i, condition := range node.Status.Conditions {
 			switch condition.Type {
-			// currently only one... used to be more, may be again
+			// Each condition appears only once. Currently there's only one... used to be more
 			case kapi.NodeReady:
 				ready = &node.Status.Conditions[i]
-				// TODO comment needed to explain why we do last one wins.  should this break instead?
 			}
 		}
 
@@ -90,11 +101,16 @@ func (d NodeDefinition) Check() (bool, []log.Message, []error, []error) {
 				templateData["reason"] = ready.Reason
 			}
 
-			return false, nil, []error{
-				diagnostic.NewDiagnosticErrorFromTemplate("clNodeBroken", nodeNotReady, templateData),
-			}, nil
+			r.Warn(types.NewDiagnosticErrorFromTemplate("clNodeNotReady", nodeNotReady, templateData))
+		} else if node.Spec.Unschedulable {
+			r.Warn(types.NewDiagnosticErrorFromTemplate("clNodeNotSched", nodeNotSched, map[string]interface{}{"node": node.Name}))
+		} else {
+			anyNodesAvail = true
 		}
 	}
+	if !anyNodesAvail {
+		r.Error(types.NewDiagnosticError("clNoAvailNodes", "There were no nodes availabable for OpenShift to use.", nil))
+	}
 
-	return true, nil, nil, nil
+	return r
 }

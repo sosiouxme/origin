@@ -5,7 +5,7 @@ import (
 
 	"fmt"
 	"github.com/openshift/origin/pkg/diagnostics/log"
-	"github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
+	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 type logEntry struct {
@@ -22,7 +22,7 @@ type logMatcher struct { // regex for scanning log messages and interpreting the
 		logger *log.Logger,
 		entry *logEntry,
 		matches []string,
-	) (bool, []log.Message, []error, []error) // KeepAfterMatch?
+	) (bool /* KeepAfterMatch? */, *types.DiagnosticResult)
 }
 
 type unitSpec struct {
@@ -81,15 +81,15 @@ logs after the node is actually available.`,
 				// TODO: don't rely on ipv4 format, should be ipv6 "soon"
 				Regexp: regexp.MustCompile("http: TLS handshake error from ([\\d.]+):\\d+: remote error: bad certificate"),
 				Level:  log.WarnLevel,
-				Interpret: func(logger *log.Logger, entry *logEntry, matches []string) (bool, []log.Message, []error, []error) {
-					warnings := []error{}
+				Interpret: func(logger *log.Logger, entry *logEntry, matches []string) (bool, *types.DiagnosticResult) {
+					r := &types.DiagnosticResult{}
 
 					client := matches[1]
 					prelude := fmt.Sprintf("Found 'openshift-master' journald log message:\n  %s\n", entry.Message)
 					if tlsClientErrorSeen == nil { // first time this message was seen
 						tlsClientErrorSeen = map[string]bool{client: true}
 						// TODO: too generic, adjust message depending on subnet of the "from" address
-						diagnosticError := diagnostic.NewDiagnosticError("sdLogOMreBadCert", prelude+`
+						diagnosticError := types.NewDiagnosticError("sdLogOMreBadCert", prelude+`
 This error indicates that a client attempted to connect to the master
 HTTPS API server but broke off the connection because the master's
 certificate is not validated by a cerificate authority (CA) acceptable
@@ -131,17 +131,17 @@ log message:
 
 						message := log.Message{ID: diagnosticError.ID, EvaluatedText: diagnosticError.Explanation, TemplateData: map[string]string{"client": client}}
 						logger.LogMessage(log.WarnLevel, message)
-						warnings = append(warnings, diagnosticError)
+						r.Warn(diagnosticError)
 
 					} else if !tlsClientErrorSeen[client] {
 						tlsClientErrorSeen[client] = true
-						diagnosticError := diagnostic.NewDiagnosticError("sdLogOMreBadCert", prelude+`This message was diagnosed above, but for a different client address.`, nil)
+						diagnosticError := types.NewDiagnosticError("sdLogOMreBadCert", prelude+`This message was diagnosed above, but for a different client address.`, nil)
 						message := log.Message{ID: diagnosticError.ID, EvaluatedText: diagnosticError.Explanation, TemplateData: map[string]string{"client": client}}
 						logger.LogMessage(log.WarnLevel, message)
-						warnings = append(warnings, diagnosticError)
+						r.Warn(diagnosticError)
 
 					} // else, it's a repeat, don't mention it
-					return true, nil, warnings, nil // show once for every client failing to connect, not just the first
+					return true /* show once for every client failing to connect, not just the first */, r
 				},
 			},
 			{

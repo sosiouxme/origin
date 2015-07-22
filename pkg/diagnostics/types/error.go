@@ -1,19 +1,10 @@
-package diagnostic
-
-// This needed to be separate from other types to avoid import cycle
-// diagnostic -> discovery -> types
+package types
 
 import (
 	"fmt"
 
 	"github.com/openshift/origin/pkg/diagnostics/log"
 )
-
-type Diagnostic interface {
-	Description() string
-	CanRun() (canRun bool, reason error)
-	Check() (success bool, info []log.Message, warnings []error, errors []error)
-}
 
 type DiagnosticError struct {
 	ID          string
@@ -52,4 +43,12 @@ func (e DiagnosticError) Error() string {
 func IsDiagnosticError(e error) bool {
 	_, ok := e.(DiagnosticError)
 	return ok
+}
+
+// is the error a diagnostics error that matches the given ID?
+func MatchesDiagError(err error, id string) bool {
+	if derr, ok := err.(DiagnosticError); ok && derr.ID == id {
+		return true
+	}
+	return false
 }

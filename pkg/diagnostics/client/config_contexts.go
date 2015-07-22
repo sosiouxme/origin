@@ -8,7 +8,7 @@ import (
 	kclientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
 
 	"github.com/openshift/origin/pkg/diagnostics/log"
-	"github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
+	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 const (
@@ -34,6 +34,7 @@ type ConfigContext struct {
 func (d ConfigContext) Description() string {
 	return "Test that client config contexts have no undefined references"
 }
+
 func (d ConfigContext) CanRun() (bool, error) {
 	if d.KubeConfig == nil {
 		// TODO make prettier?
@@ -46,10 +47,9 @@ func (d ConfigContext) CanRun() (bool, error) {
 
 	return true, nil
 }
-func (d ConfigContext) Check() (bool, []log.Message, []error, []error) {
-	if _, err := d.CanRun(); err != nil {
-		return false, nil, nil, []error{err}
-	}
+
+func (d ConfigContext) Check() *types.DiagnosticResult {
+	r := &types.DiagnosticResult{}
 
 	isDefaultContext := d.KubeConfig.CurrentContext == d.ContextName
 
@@ -62,25 +62,25 @@ func (d ConfigContext) Check() (bool, []log.Message, []error, []error) {
 
 	context, exists := d.KubeConfig.Contexts[d.ContextName]
 	if !exists {
-		err := diagnostic.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' is not defined.", d.ContextName))
+		err := types.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' is not defined.", d.ContextName))
 		d.Log.Error(err.ID, err.Cause.Error())
-		return false, nil, nil, []error{err}
+		return r.Error(err)
 	}
 
 	clusterName := context.Cluster
 	cluster, exists := d.KubeConfig.Clusters[clusterName]
 	if !exists {
 
-		err := diagnostic.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' has a cluster '%s' which is not defined.", d.ContextName, clusterName))
+		err := types.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' has a cluster '%s' which is not defined.", d.ContextName, clusterName))
 		d.Log.Error(err.ID, err.Cause.Error())
-		return false, nil, nil, []error{err}
+		return r.Error(err)
 	}
 	authName := context.AuthInfo
 	if _, exists := d.KubeConfig.AuthInfos[authName]; !exists {
 
-		err := diagnostic.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' has a user identity '%s' which is not defined.", d.ContextName, authName))
+		err := types.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' has a user identity '%s' which is not defined.", d.ContextName, authName))
 		d.Log.Error(err.ID, err.Cause.Error())
-		return false, nil, nil, []error{err}
+		return r.Error(err)
 	}
 
 	project := context.Namespace
@@ -95,5 +95,5 @@ func (d ConfigContext) Check() (bool, []log.Message, []error, []error) {
 		message = log.Message{EvaluatedText: fmt.Sprintf("The current client config context is '%s':\n The server URL is '%s'\nThe user authentication is '%s'\nThe current project is '%s'", d.ContextName, cluster.Server, authName, project)}
 	}
 	d.Log.LogMessage(log.InfoLevel, message)
-	return true, []log.Message{message}, nil, nil
+	return r
 }

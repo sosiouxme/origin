@@ -14,7 +14,7 @@ import (
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	masterdiagnostics "github.com/openshift/origin/pkg/diagnostics/master"
 	systemddiagnostics "github.com/openshift/origin/pkg/diagnostics/systemd"
-	diagnostictypes "github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
+	diagnostictypes "github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 const (

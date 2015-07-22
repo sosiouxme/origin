@@ -85,18 +85,21 @@ func NewLogger(setLevel int, setFormat string, out io.Writer) (*Logger, error) {
 }
 
 type Message struct {
-	ID       string
+	// ID: an identifier unique to the message being logged, intended for json/yaml output
+	//     so that automation can recognize specific messages without trying to parse them.
+	ID string
+	// Template: a template string as understood by text/template that can use any of the
+	//           TemplateData entries in this Message as inputs.
 	Template string
-
 	// TemplateData is passed to template executor to complete the message
 	TemplateData interface{}
 
-	EvaluatedText string
+	EvaluatedText string // human-readable message text
 }
 
 func (m Message) String() string {
 	if len(m.EvaluatedText) > 0 {
-		return fmt.Sprintf("%s: %s", m.EvaluatedText)
+		return m.EvaluatedText
 	}
 
 	if len(m.Template) == 0 {
@@ -105,7 +108,7 @@ func (m Message) String() string {
 
 	// if given a template, convert it to text
 	parsedTmpl, err := template.New(m.ID).Parse(m.Template)
-	if err != nil {
+	if err != nil { // unless the template is broken of course
 		return fmt.Sprintf("%s: %s %#v: %v", m.ID, m.Template, m.TemplateData, err)
 	}
 
@@ -122,18 +125,6 @@ type LogEntry struct {
 	Level Level
 	Message
 }
-
-/* a Msg can be expected to have the following entries:
- * "id": an identifier unique to the message being logged, intended for json/yaml output
- *       so that automation can recognize specific messages without trying to parse them.
- * "text": human-readable message text
- * "tmpl": a template string as understood by text/template that can use any of the other
- *         entries in this Msg as inputs. This is removed, evaluated, and the result is
- *         placed in "text". If there is an error during evaluation, the error is placed
- *         in "templateErr", the original id of the message is stored in "templateId",
- *         and the Msg id is changed to "tmplErr". Of course, this should never happen
- *         if there are no mistakes in the calling code.
- */
 
 var (
 	ErrorLevel  = Level{4, "error", "ERROR: ", ct.Red, true}   // Something is definitely wrong

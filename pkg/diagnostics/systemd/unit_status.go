@@ -8,7 +8,6 @@ import (
 
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
-	"github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
 )
 
 // UnitStatus
@@ -30,67 +29,51 @@ func (d UnitStatus) CanRun() (bool, error) {
 
 	return false, errors.New("systemd is not present on this host")
 }
-func (d UnitStatus) Check() (bool, []log.Message, []error, []error) {
-	if _, err := d.CanRun(); err != nil {
-		return false, nil, nil, []error{err}
-	}
+func (d UnitStatus) Check() *types.DiagnosticResult {
+	r := &types.DiagnosticResult{}
 
-	warnings := []error{}
-	errors := []error{}
-
-	unitWarnings, unitErrors := unitRequiresUnit(d.Log, d.SystemdUnits["openshift-node"], d.SystemdUnits["iptables"], nodeRequiresIPTables)
-	warnings = append(warnings, unitWarnings...)
-	errors = append(errors, unitErrors...)
-
-	unitWarnings, unitErrors = unitRequiresUnit(d.Log, d.SystemdUnits["openshift-node"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`)
-	warnings = append(warnings, unitWarnings...)
-	errors = append(errors, unitErrors...)
-
-	unitWarnings, unitErrors = unitRequiresUnit(d.Log, d.SystemdUnits["openshift"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`)
-	warnings = append(warnings, unitWarnings...)
-	errors = append(errors, unitErrors...)
+	r.Append(unitRequiresUnit(d.Log, d.SystemdUnits["openshift-node"], d.SystemdUnits["iptables"], nodeRequiresIPTables))
+	r.Append(unitRequiresUnit(d.Log, d.SystemdUnits["openshift-node"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`))
+	r.Append(unitRequiresUnit(d.Log, d.SystemdUnits["openshift"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`))
 
 	// node's dependency on openvswitch is a special case.
 	// We do not need to enable ovs because openshift-node starts it for us.
 	if d.SystemdUnits["openshift-node"].Active && !d.SystemdUnits["openvswitch"].Active {
-		diagnosticError := diagnostic.NewDiagnosticError("sdUnitSDNreqOVS", sdUnitSDNreqOVS, nil)
+		diagnosticError := types.NewDiagnosticError("sdUnitSDNreqOVS", sdUnitSDNreqOVS, nil)
 		d.Log.Error(diagnosticError.ID, diagnosticError.Explanation)
-		errors = append(errors, diagnosticError)
+		r.Error(diagnosticError)
 	}
 
 	// Anything that is enabled but not running deserves notice
 	for name, unit := range d.SystemdUnits {
 		if unit.Enabled && !unit.Active {
-			diagnosticError := diagnostic.NewDiagnosticErrorFromTemplate("sdUnitInactive", sdUnitInactive, map[string]string{"unit": name})
+			diagnosticError := types.NewDiagnosticErrorFromTemplate("sdUnitInactive", sdUnitInactive, map[string]string{"unit": name})
 			d.Log.LogMessage(log.ErrorLevel, *diagnosticError.LogMessage)
-			errors = append(errors, diagnosticError)
+			r.Error(diagnosticError)
 		}
 	}
 
-	return (len(errors) == 0), nil, warnings, errors
+	return r
 }
 
-func unitRequiresUnit(logger *log.Logger, unit types.SystemdUnit, requires types.SystemdUnit, reason string) ([]error, []error) {
+func unitRequiresUnit(logger *log.Logger, unit types.SystemdUnit, requires types.SystemdUnit, reason string) *types.DiagnosticResult {
+	r := &types.DiagnosticResult{}
 	templateData := map[string]string{"unit": unit.Name, "required": requires.Name, "reason": reason}
 
 	if (unit.Active || unit.Enabled) && !requires.Exists {
-		diagnosticError := diagnostic.NewDiagnosticErrorFromTemplate("sdUnitReqLoaded", sdUnitReqLoaded, templateData)
+		diagnosticError := types.NewDiagnosticErrorFromTemplate("sdUnitReqLoaded", sdUnitReqLoaded, templateData)
 		logger.LogMessage(log.ErrorLevel, *diagnosticError.LogMessage)
-		return nil, []error{diagnosticError}
-
+		r.Error(diagnosticError)
 	} else if unit.Active && !requires.Active {
-		diagnosticError := diagnostic.NewDiagnosticErrorFromTemplate("sdUnitReqActive", sdUnitReqActive, templateData)
+		diagnosticError := types.NewDiagnosticErrorFromTemplate("sdUnitReqActive", sdUnitReqActive, templateData)
 		logger.LogMessage(log.ErrorLevel, *diagnosticError.LogMessage)
-		return nil, []error{diagnosticError}
-
+		r.Error(diagnosticError)
 	} else if unit.Enabled && !requires.Enabled {
-		diagnosticError := diagnostic.NewDiagnosticErrorFromTemplate("sdUnitReqEnabled", sdUnitReqEnabled, templateData)
+		diagnosticError := types.NewDiagnosticErrorFromTemplate("sdUnitReqEnabled", sdUnitReqEnabled, templateData)
 		logger.LogMessage(log.WarnLevel, *diagnosticError.LogMessage)
-		return []error{diagnosticError}, nil
-
+		r.Warn(diagnosticError)
 	}
-
-	return nil, nil
+	return r
 }
 
 func errStr(err error) string {

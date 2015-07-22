@@ -16,7 +16,7 @@ import (
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 	clientdiagnostics "github.com/openshift/origin/pkg/diagnostics/client"
 	"github.com/openshift/origin/pkg/diagnostics/log"
-	diagnostictypes "github.com/openshift/origin/pkg/diagnostics/types/diagnostic"
+	diagnostictypes "github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 const ClientDiagnosticsRecommendedName = "client"
