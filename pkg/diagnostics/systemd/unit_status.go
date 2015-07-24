@@ -13,8 +13,6 @@ import (
 // UnitStatus
 type UnitStatus struct {
 	SystemdUnits map[string]types.SystemdUnit
-
-	Log *log.Logger
 }
 
 func (d UnitStatus) Description() string {
@@ -30,50 +28,37 @@ func (d UnitStatus) CanRun() (bool, error) {
 	return false, errors.New("systemd is not present on this host")
 }
 func (d UnitStatus) Check() *types.DiagnosticResult {
-	r := &types.DiagnosticResult{}
+	r := types.NewDiagnosticResult("UnitStatus")
 
-	r.Append(unitRequiresUnit(d.Log, d.SystemdUnits["openshift-node"], d.SystemdUnits["iptables"], nodeRequiresIPTables))
-	r.Append(unitRequiresUnit(d.Log, d.SystemdUnits["openshift-node"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`))
-	r.Append(unitRequiresUnit(d.Log, d.SystemdUnits["openshift"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`))
+	unitRequiresUnit(r, d.SystemdUnits["openshift-node"], d.SystemdUnits["iptables"], nodeRequiresIPTables)
+	unitRequiresUnit(r, d.SystemdUnits["openshift-node"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`)
+	unitRequiresUnit(r, d.SystemdUnits["openshift"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`)
 
 	// node's dependency on openvswitch is a special case.
 	// We do not need to enable ovs because openshift-node starts it for us.
 	if d.SystemdUnits["openshift-node"].Active && !d.SystemdUnits["openvswitch"].Active {
-		diagnosticError := types.NewDiagnosticError("sdUnitSDNreqOVS", sdUnitSDNreqOVS, nil)
-		d.Log.Error(diagnosticError.ID, diagnosticError.Explanation)
-		r.Error(diagnosticError)
+		r.Error("sdUnitSDNreqOVS", nil, sdUnitSDNreqOVS)
 	}
 
 	// Anything that is enabled but not running deserves notice
 	for name, unit := range d.SystemdUnits {
 		if unit.Enabled && !unit.Active {
-			diagnosticError := types.NewDiagnosticErrorFromTemplate("sdUnitInactive", sdUnitInactive, map[string]string{"unit": name})
-			d.Log.LogMessage(log.ErrorLevel, *diagnosticError.LogMessage)
-			r.Error(diagnosticError)
+			r.Errort("sdUnitInactive", nil, sdUnitInactive, log.Hash{"unit": name})
 		}
 	}
-
 	return r
 }
 
-func unitRequiresUnit(logger *log.Logger, unit types.SystemdUnit, requires types.SystemdUnit, reason string) *types.DiagnosticResult {
-	r := &types.DiagnosticResult{}
-	templateData := map[string]string{"unit": unit.Name, "required": requires.Name, "reason": reason}
+func unitRequiresUnit(r *types.DiagnosticResult, unit types.SystemdUnit, requires types.SystemdUnit, reason string) {
+	templateData := log.Hash{"unit": unit.Name, "required": requires.Name, "reason": reason}
 
 	if (unit.Active || unit.Enabled) && !requires.Exists {
-		diagnosticError := types.NewDiagnosticErrorFromTemplate("sdUnitReqLoaded", sdUnitReqLoaded, templateData)
-		logger.LogMessage(log.ErrorLevel, *diagnosticError.LogMessage)
-		r.Error(diagnosticError)
+		r.Errort("sdUnitReqLoaded", nil, sdUnitReqLoaded, templateData)
 	} else if unit.Active && !requires.Active {
-		diagnosticError := types.NewDiagnosticErrorFromTemplate("sdUnitReqActive", sdUnitReqActive, templateData)
-		logger.LogMessage(log.ErrorLevel, *diagnosticError.LogMessage)
-		r.Error(diagnosticError)
+		r.Errort("sdUnitReqActive", nil, sdUnitReqActive, templateData)
 	} else if unit.Enabled && !requires.Enabled {
-		diagnosticError := types.NewDiagnosticErrorFromTemplate("sdUnitReqEnabled", sdUnitReqEnabled, templateData)
-		logger.LogMessage(log.WarnLevel, *diagnosticError.LogMessage)
-		r.Warn(diagnosticError)
+		r.Warnt("sdUnitReqEnabled", nil, sdUnitReqEnabled, templateData)
 	}
-	return r
 }
 
 func errStr(err error) string {

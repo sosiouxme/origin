@@ -63,19 +63,20 @@ func (d NodeDefinition) CanRun() (bool, error) {
 	if _, err := d.KubeClient.Nodes().List(labels.LabelSelector{}, fields.Everything()); err != nil {
 		// TODO check for 403 to return: "Client does not have cluster-admin access and cannot see node records"
 
-		return false, types.NewDiagnosticError("clGetNodesFailed", fmt.Sprintf(clientErrorGettingNodes, err), err)
+		msg := log.Message{ID: "clGetNodesFailed", EvaluatedText: fmt.Sprintf(clientErrorGettingNodes, err)}
+		return false, types.DiagnosticError{msg.ID, &msg, err}
 	}
 
 	return true, nil
 }
 
 func (d NodeDefinition) Check() *types.DiagnosticResult {
-	r := &types.DiagnosticResult{}
+	r := types.NewDiagnosticResult("NodeDefinition")
 
 	nodes, err := d.KubeClient.Nodes().List(labels.LabelSelector{}, fields.Everything())
 	if err != nil {
-		return r.Error(types.NewDiagnosticError("clGetNodesFailed",
-			fmt.Sprintf(clientErrorGettingNodes, err), err))
+		r.Errorf("clGetNodesFailed", err, clientErrorGettingNodes, err)
+		return r
 	}
 
 	anyNodesAvail := false
@@ -90,9 +91,7 @@ func (d NodeDefinition) Check() *types.DiagnosticResult {
 		}
 
 		if ready == nil || ready.Status != kapi.ConditionTrue {
-			// instead of building this, simply use the node object directly
-			templateData := map[string]interface{}{}
-			templateData["node"] = node.Name
+			templateData := log.Hash{"node": node.Name}
 			if ready == nil {
 				templateData["status"] = "None"
 				templateData["reason"] = "There is no readiness record."
@@ -100,16 +99,15 @@ func (d NodeDefinition) Check() *types.DiagnosticResult {
 				templateData["status"] = ready.Status
 				templateData["reason"] = ready.Reason
 			}
-
-			r.Warn(types.NewDiagnosticErrorFromTemplate("clNodeNotReady", nodeNotReady, templateData))
+			r.Warnt("clNodeNotReady", nil, nodeNotReady, templateData)
 		} else if node.Spec.Unschedulable {
-			r.Warn(types.NewDiagnosticErrorFromTemplate("clNodeNotSched", nodeNotSched, map[string]interface{}{"node": node.Name}))
+			r.Warnt("clNodeNotSched", nil, nodeNotSched, log.Hash{"node": node.Name})
 		} else {
 			anyNodesAvail = true
 		}
 	}
 	if !anyNodesAvail {
-		r.Error(types.NewDiagnosticError("clNoAvailNodes", "There were no nodes availabable for OpenShift to use.", nil))
+		r.Error("clNoAvailNodes", nil, "There were no nodes available for OpenShift to use.")
 	}
 
 	return r

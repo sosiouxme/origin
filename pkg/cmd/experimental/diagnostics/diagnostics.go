@@ -83,8 +83,8 @@ func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.C
 		Run: func(c *cobra.Command, args []string) {
 			kcmdutil.CheckErr(o.Complete())
 
-			failed, err := o.RunDiagnostics()
-			o.Logger.Summary()
+			failed, err, warnCount, errorCount := o.RunDiagnostics()
+			o.Logger.Summary(warnCount, errorCount)
 			o.Logger.Finish()
 
 			kcmdutil.CheckErr(err)

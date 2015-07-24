@@ -31,7 +31,7 @@ func IsTerminal(w io.Writer) bool {
 	return ok && term.IsTerminal(file.Fd())
 }
 
-func (t *textLogger) Write(entry LogEntry) {
+func (t *textLogger) Write(entry Entry) {
 	if t.ttyOutput {
 		ct.ChangeColor(entry.Level.Color, entry.Level.Bright, ct.None, false)
 	}

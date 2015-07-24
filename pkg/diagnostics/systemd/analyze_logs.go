@@ -3,7 +3,6 @@ package systemd
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os/exec"
 
@@ -11,11 +10,15 @@ import (
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
+const (
+	sdLogReadErr = `Diagnostics failed to query journalctl for the '%s' unit logs.
+This should be very unusual, so please report this error:
+%s`
+)
+
 // AnalyzeLogs
 type AnalyzeLogs struct {
 	SystemdUnits map[string]types.SystemdUnit
-
-	Log *log.Logger
 }
 
 func (d AnalyzeLogs) Description() string {
@@ -27,13 +30,11 @@ func (d AnalyzeLogs) CanRun() (bool, error) {
 }
 
 func (d AnalyzeLogs) Check() *types.DiagnosticResult {
-	r := &types.DiagnosticResult{}
+	r := types.NewDiagnosticResult("AnalyzeLogs")
 
 	for _, unit := range unitLogSpecs {
 		if svc := d.SystemdUnits[unit.Name]; svc.Enabled || svc.Active {
-			checkMessage := log.Message{ID: "sdCheckLogs", EvaluatedText: fmt.Sprintf("Checking journalctl logs for '%s' service", unit.Name)}
-			d.Log.LogMessage(log.InfoLevel, checkMessage)
-			r.Log(checkMessage)
+			r.Infof("sdCheckLogs", "Checking journalctl logs for '%s' service", unit.Name)
 
 			cmd := exec.Command("journalctl", "-ru", unit.Name, "--output=json")
 			// JSON comes out of journalctl one line per record
@@ -49,9 +50,8 @@ func (d AnalyzeLogs) Check() *types.DiagnosticResult {
 			}(cmd)
 
 			if err != nil {
-				diagnosticError := types.NewDiagnosticError("sdLogReadErr", fmt.Sprintf(sdLogReadErr, unit.Name, errStr(err)), err)
-				d.Log.Error(diagnosticError.ID, diagnosticError.Explanation)
-				return r.Error(diagnosticError)
+				r.Errorf("sdLogReadErr", err, sdLogReadErr, unit.Name, errStr(err))
+				return r
 			}
 			defer func() { // close out pipe once done reading
 				reader.Close()
@@ -65,34 +65,33 @@ func (d AnalyzeLogs) Check() *types.DiagnosticResult {
 				}
 				bytes, entry := lineReader.Bytes(), entryTemplate
 				if err := json.Unmarshal(bytes, &entry); err != nil {
-					badJSONMessage := log.Message{ID: "sdLogBadJSON", EvaluatedText: fmt.Sprintf("Couldn't read the JSON for this log message:\n%s\nGot error %s", string(bytes), errStr(err))}
-					d.Log.LogMessage(log.DebugLevel, badJSONMessage)
-
+					r.Debugf("sdLogBadJSON", "Couldn't read the JSON for this log message:\n%s\nGot error %s", string(bytes), errStr(err))
 				} else {
 					if unit.StartMatch.MatchString(entry.Message) {
 						break // saw the log message where the unit started; done looking.
 					}
+					// TODO: also stop when age limit reached (don't scan days of logs)
 					for index, match := range matchCopy { // match log message against provided matchers
 						if strings := match.Regexp.FindStringSubmatch(entry.Message); strings != nil {
 							// if matches: print interpretation, remove from matchCopy, and go on to next log entry
-							keep := match.KeepAfterMatch
-							if match.Interpret != nil { // apply custom logic
-								currKeep, result := match.Interpret(d.Log, &entry, strings)
+							keep := match.KeepAfterMatch // generic keep logic
+							if match.Interpret != nil {  // apply custom match logic
+								currKeep, result := match.Interpret(&entry, strings)
 								keep = currKeep
 								r.Append(result)
 							} else { // apply generic match processing
-								text := fmt.Sprintf("Found '%s' journald log message:\n  %s\n", unit.Name, entry.Message) + match.Interpretation
-								message := log.Message{ID: match.Id, EvaluatedText: text, TemplateData: map[string]string{"unit": unit.Name, "logMsg": entry.Message}}
-								d.Log.LogMessage(match.Level, message)
-								diagnosticError := types.NewDiagnosticError(match.Id, text, nil)
+								template := "Found '{{.unit}}' journald log message:\n  {{.logMsg}}\n{{.interpretation}}"
+								templateData := log.Hash{"unit": unit.Name, "logMsg": entry.Message, "interpretation": match.Interpretation}
 
 								switch match.Level {
-								case log.InfoLevel, log.NoticeLevel:
-									r.Log(message)
+								case log.DebugLevel:
+									r.Debugt(match.Id, template, templateData)
+								case log.InfoLevel:
+									r.Infot(match.Id, template, templateData)
 								case log.WarnLevel:
-									r.Warn(diagnosticError)
+									r.Warnt(match.Id, nil, template, templateData)
 								case log.ErrorLevel:
-									r.Error(diagnosticError)
+									r.Errort(match.Id, nil, template, templateData)
 								}
 							}
 
@@ -110,9 +109,3 @@ func (d AnalyzeLogs) Check() *types.DiagnosticResult {
 
 	return r
 }
-
-const (
-	sdLogReadErr = `Diagnostics failed to query journalctl for the '%s' unit logs.
-This should be very unusual, so please report this error:
-%s`
-)

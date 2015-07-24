@@ -49,7 +49,7 @@ func (d ConfigContext) CanRun() (bool, error) {
 }
 
 func (d ConfigContext) Check() *types.DiagnosticResult {
-	r := &types.DiagnosticResult{}
+	r := types.NewDiagnosticResult("ConfigContext")
 
 	isDefaultContext := d.KubeConfig.CurrentContext == d.ContextName
 
@@ -62,38 +62,32 @@ func (d ConfigContext) Check() *types.DiagnosticResult {
 
 	context, exists := d.KubeConfig.Contexts[d.ContextName]
 	if !exists {
-		err := types.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' is not defined.", d.ContextName))
-		d.Log.Error(err.ID, err.Cause.Error())
-		return r.Error(err)
+		r.Errorf(errorKey, nil, "%s:\n Client config context '%s' is not defined.", unusableLine, d.ContextName)
+		return r
 	}
 
 	clusterName := context.Cluster
 	cluster, exists := d.KubeConfig.Clusters[clusterName]
 	if !exists {
-
-		err := types.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' has a cluster '%s' which is not defined.", d.ContextName, clusterName))
-		d.Log.Error(err.ID, err.Cause.Error())
-		return r.Error(err)
+		r.Errorf(errorKey, nil, "%s:\n Client config context '%s' has a cluster '%s' which is not defined.", unusableLine, d.ContextName, clusterName)
+		return r
 	}
 	authName := context.AuthInfo
 	if _, exists := d.KubeConfig.AuthInfos[authName]; !exists {
-
-		err := types.NewDiagnosticError(errorKey, "", fmt.Errorf(unusableLine+":\n Client config context '%s' has a user identity '%s' which is not defined.", d.ContextName, authName))
-		d.Log.Error(err.ID, err.Cause.Error())
-		return r.Error(err)
+		r.Errorf(errorKey, nil, "%s:\n Client config context '%s' has a user identity '%s' which is not defined.", unusableLine, d.ContextName, authName)
+		return r
 	}
 
 	project := context.Namespace
 	if project == "" {
 		project = kapi.NamespaceDefault // OpenShift/k8s fills this in if missing
-
 	}
 
 	// TODO: actually send a request to see if can connect
-	message := log.Message{EvaluatedText: fmt.Sprintf("For client config context '%s':\n The server URL is '%s'\nThe user authentication is '%s'\nThe current project is '%s'", d.ContextName, cluster.Server, authName, project)}
+	text := "For client config context '%s':\n The server URL is '%s'\nThe user authentication is '%s'\nThe current project is '%s'"
 	if isDefaultContext {
-		message = log.Message{EvaluatedText: fmt.Sprintf("The current client config context is '%s':\n The server URL is '%s'\nThe user authentication is '%s'\nThe current project is '%s'", d.ContextName, cluster.Server, authName, project)}
+		text = "The current client config context is '%s':\n The server URL is '%s'\nThe user authentication is '%s'\nThe current project is '%s'"
 	}
-	d.Log.LogMessage(log.InfoLevel, message)
+	r.Infof("ccInfo", text, d.ContextName, cluster.Server, authName, project)
 	return r
 }

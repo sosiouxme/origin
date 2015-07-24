@@ -19,7 +19,6 @@ type logMatcher struct { // regex for scanning log messages and interpreting the
 	Interpretation string // log with above level+id if it's simple
 	KeepAfterMatch bool   // usually note only first matched entry, ignore rest
 	Interpret      func(  // run this for custom logic on match
-		logger *log.Logger,
 		entry *logEntry,
 		matches []string,
 	) (bool /* KeepAfterMatch? */, *types.DiagnosticResult)
@@ -81,15 +80,15 @@ logs after the node is actually available.`,
 				// TODO: don't rely on ipv4 format, should be ipv6 "soon"
 				Regexp: regexp.MustCompile("http: TLS handshake error from ([\\d.]+):\\d+: remote error: bad certificate"),
 				Level:  log.WarnLevel,
-				Interpret: func(logger *log.Logger, entry *logEntry, matches []string) (bool, *types.DiagnosticResult) {
-					r := &types.DiagnosticResult{}
+				Interpret: func(entry *logEntry, matches []string) (bool, *types.DiagnosticResult) {
+					r := types.NewDiagnosticResult("openshift-master.journald")
 
 					client := matches[1]
 					prelude := fmt.Sprintf("Found 'openshift-master' journald log message:\n  %s\n", entry.Message)
 					if tlsClientErrorSeen == nil { // first time this message was seen
 						tlsClientErrorSeen = map[string]bool{client: true}
 						// TODO: too generic, adjust message depending on subnet of the "from" address
-						diagnosticError := types.NewDiagnosticError("sdLogOMreBadCert", prelude+`
+						r.Warn("sdLogOMreBadCert", nil, prelude+`
 This error indicates that a client attempted to connect to the master
 HTTPS API server but broke off the connection because the master's
 certificate is not validated by a cerificate authority (CA) acceptable
@@ -127,19 +126,11 @@ log message:
   (so this message may simply indicate that the master generated a new
   server certificate, e.g. to add a different --public-master, and a
   browser hasn't accepted it yet and is still attempting API calls;
-  try logging out of the console and back in again).`, nil)
-
-						message := log.Message{ID: diagnosticError.ID, EvaluatedText: diagnosticError.Explanation, TemplateData: map[string]string{"client": client}}
-						logger.LogMessage(log.WarnLevel, message)
-						r.Warn(diagnosticError)
+  try logging out of the console and back in again).`)
 
 					} else if !tlsClientErrorSeen[client] {
 						tlsClientErrorSeen[client] = true
-						diagnosticError := types.NewDiagnosticError("sdLogOMreBadCert", prelude+`This message was diagnosed above, but for a different client address.`, nil)
-						message := log.Message{ID: diagnosticError.ID, EvaluatedText: diagnosticError.Explanation, TemplateData: map[string]string{"client": client}}
-						logger.LogMessage(log.WarnLevel, message)
-						r.Warn(diagnosticError)
-
+						r.Warn("sdLogOMreBadCert", nil, prelude+`This message was diagnosed above, but for a different client address.`)
 					} // else, it's a repeat, don't mention it
 					return true /* show once for every client failing to connect, not just the first */, r
 				},

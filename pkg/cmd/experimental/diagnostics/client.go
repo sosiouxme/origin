@@ -19,8 +19,6 @@ import (
 	diagnostictypes "github.com/openshift/origin/pkg/diagnostics/types"
 )
 
-const ClientDiagnosticsRecommendedName = "client"
-
 var (
 	AvailableClientDiagnostics = util.NewStringSet("ConfigContexts", "NodeDefinitions")
 )
@@ -36,59 +34,6 @@ type ClientDiagnosticsOptions struct {
 	Logger     *log.Logger
 }
 
-const longClientDescription = `
-OpenShift Diagnostics
-
-This command helps you understand and troubleshoot OpenShift as a user. It is
-intended to be run from the same context as an OpenShift client
-("openshift cli" or "osc") and with the same configuration options.
-
-    $ %s
-`
-
-func NewClientCommand(name string, fullName string, out io.Writer) *cobra.Command {
-	o := &ClientDiagnosticsOptions{
-		RequestedDiagnostics: AvailableClientDiagnostics.List(),
-		LogOptions:           &log.LoggerOptions{Out: out},
-	}
-
-	var factory *osclientcmd.Factory
-
-	cmd := &cobra.Command{
-		Use:   name,
-		Short: "Troubleshoot using the OpenShift v3 client.",
-		Long:  fmt.Sprintf(longClientDescription, fullName),
-		Run: func(c *cobra.Command, args []string) {
-			kcmdutil.CheckErr(o.Complete())
-
-			_, kubeClient, err := factory.Clients()
-			kcmdutil.CheckErr(err)
-
-			kubeConfig, err := factory.OpenShiftClientConfig.RawConfig()
-			kcmdutil.CheckErr(err)
-
-			o.KubeClient = kubeClient
-			o.KubeConfig = &kubeConfig
-
-			failed, err := o.RunDiagnostics()
-			o.Logger.Summary()
-			o.Logger.Finish()
-
-			kcmdutil.CheckErr(err)
-			if failed {
-				os.Exit(255)
-			}
-
-		},
-	}
-	cmd.SetOutput(out)                     // for output re: usage / help
-	factory = osclientcmd.New(cmd.Flags()) // side effect: add standard persistent flags for openshift client
-	diagnosticflags.BindLoggerOptionFlags(cmd.Flags(), o.LogOptions, diagnosticflags.RecommendedLoggerOptionFlags())
-	diagnosticflags.BindDiagnosticFlag(cmd.Flags(), &o.RequestedDiagnostics, diagnosticflags.NewRecommendedDiagnosticFlag())
-
-	return cmd
-}
-
 func (o *ClientDiagnosticsOptions) Complete() error {
 	var err error
 	o.Logger, err = o.LogOptions.NewLogger()
@@ -99,9 +44,8 @@ func (o *ClientDiagnosticsOptions) Complete() error {
 	return nil
 }
 
-func (o ClientDiagnosticsOptions) RunDiagnostics() (bool, error) {
+func (o ClientDiagnosticsOptions) RunDiagnostics() (bool, error, int, int) {
 	diagnostics := map[string]diagnostictypes.Diagnostic{}
-
 	for _, diagnosticName := range o.RequestedDiagnostics {
 		switch diagnosticName {
 		case "ConfigContexts":
@@ -113,24 +57,33 @@ func (o ClientDiagnosticsOptions) RunDiagnostics() (bool, error) {
 			diagnostics[diagnosticName] = clientdiagnostics.NodeDefinition{o.KubeClient, o.Logger}
 
 		default:
-			return false, fmt.Errorf("unknown diagnostic: %v", diagnosticName)
+			return true, fmt.Errorf("unknown diagnostic: %v", diagnosticName), 0, 1
 		}
 	}
 
+	warnCount := 0
+	errorCount := 0
 	for name, diagnostic := range diagnostics {
-
 		if canRun, reason := diagnostic.CanRun(); !canRun {
 			if reason == nil {
-				o.Logger.Noticem(log.Message{ID: "diagSkip", Template: "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}", TemplateData: map[string]string{"area": "client", "name": name, "diag": diagnostic.Description()}})
+				o.Logger.Noticet("diagSkip", "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}",
+					log.Hash{"area": "client", "name": name, "diag": diagnostic.Description()})
 			} else {
-				o.Logger.Noticem(log.Message{ID: "diagSkip", Template: "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}\nBecause: {{.reason}}", TemplateData: map[string]string{"area": "client", "name": name, "diag": diagnostic.Description(), "reason": reason.Error()}})
+				o.Logger.Noticet("diagSkip", "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}\nBecause: {{.reason}}",
+					log.Hash{"area": "client", "name": name, "diag": diagnostic.Description(), "reason": reason.Error()})
 			}
 			continue
 		}
 
-		o.Logger.Noticem(log.Message{ID: "diagRun", Template: "Running diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}", TemplateData: map[string]string{"area": "client", "name": name, "diag": diagnostic.Description()}})
-		diagnostic.Check()
+		o.Logger.Noticet("diagRun", "Running diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}",
+			log.Hash{"area": "client", "name": name, "diag": diagnostic.Description()})
+		r := diagnostic.Check()
+		for _, entry := range r.Logs() {
+			o.Logger.LogEntry(entry)
+		}
+		warnCount += len(r.Warnings())
+		errorCount += len(r.Errors())
 	}
 
-	return o.Logger.ErrorsSeen(), nil
+	return errorCount > 0, nil, warnCount, errorCount
 }

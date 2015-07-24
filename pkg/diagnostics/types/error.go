@@ -7,37 +7,19 @@ import (
 )
 
 type DiagnosticError struct {
-	ID          string
-	Explanation string
-	Cause       error
-
+	ID         string
 	LogMessage *log.Message
-}
-
-func NewDiagnosticError(id, explanation string, cause error) DiagnosticError {
-	return DiagnosticError{id, explanation, cause, nil}
-}
-
-func NewDiagnosticErrorFromTemplate(id, template string, templateData interface{}) DiagnosticError {
-	return DiagnosticError{id, "", nil,
-		&log.Message{
-			ID:           id,
-			Template:     template,
-			TemplateData: templateData,
-		},
-	}
+	Cause      error
 }
 
 func (e DiagnosticError) Error() string {
-	if e.Cause != nil {
-		return e.Cause.Error()
-	}
-
 	if e.LogMessage != nil {
 		return fmt.Sprintf("%v", e.LogMessage)
 	}
-
-	return e.Explanation
+	if e.Cause != nil {
+		return e.Cause.Error()
+	}
+	return e.ID
 }
 
 func IsDiagnosticError(e error) bool {
