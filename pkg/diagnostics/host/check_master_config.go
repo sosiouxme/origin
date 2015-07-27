@@ -1,19 +1,20 @@
-package master
+package host
 
 import (
 	"errors"
 
 	configapilatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
 	configvalidation "github.com/openshift/origin/pkg/cmd/server/api/validation"
-	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 // MasterConfigCheck
 type MasterConfigCheck struct {
 	MasterConfigFile string
+}
 
-	Log *log.Logger
+func (d MasterConfigCheck) Name() string {
+	return "MasterConfigCheck"
 }
 
 func (d MasterConfigCheck) Description() string {

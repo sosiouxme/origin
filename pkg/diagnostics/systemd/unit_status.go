@@ -15,6 +15,10 @@ type UnitStatus struct {
 	SystemdUnits map[string]types.SystemdUnit
 }
 
+func (d UnitStatus) Name() string {
+	return "UnitStatus"
+}
+
 func (d UnitStatus) Description() string {
 	return "Check status for OpenShift-related systemd units"
 }

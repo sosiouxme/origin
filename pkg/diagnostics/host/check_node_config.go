@@ -1,19 +1,20 @@
-package node
+package host
 
 import (
 	"errors"
 
 	configapilatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
 	configvalidation "github.com/openshift/origin/pkg/cmd/server/api/validation"
-	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 // NodeConfigCheck
 type NodeConfigCheck struct {
 	NodeConfigFile string
+}
 
-	Log *log.Logger
+func (d NodeConfigCheck) Name() string {
+	return "NodeConfigCheck"
 }
 
 func (d NodeConfigCheck) Description() string {

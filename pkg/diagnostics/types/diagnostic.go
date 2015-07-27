@@ -11,6 +11,7 @@ import (
 )
 
 type Diagnostic interface {
+	Name() string
 	Description() string
 	CanRun() (canRun bool, reason error)
 	Check() *DiagnosticResult

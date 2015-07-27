@@ -161,7 +161,7 @@ func (l *Logger) LogEntry(entry Entry) {
 		return
 	}
 
-	if msg := entry.Message; msg.EvaluatedText == "" && msg.Template != "" {
+	if msg := &entry.Message; msg.EvaluatedText == "" && msg.Template != "" {
 		// if given a template instead of text, convert it to text
 		parsedTmpl, err := template.New(msg.ID).Parse(msg.Template)
 		if err != nil {

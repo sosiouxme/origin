@@ -48,8 +48,10 @@ other options for 'oadm manage-node').
 // NodeDefinitions
 type NodeDefinition struct {
 	KubeClient *kclient.Client
+}
 
-	Log *log.Logger
+func (d NodeDefinition) Name() string {
+	return "NodeDefinition"
 }
 
 func (d NodeDefinition) Description() string {

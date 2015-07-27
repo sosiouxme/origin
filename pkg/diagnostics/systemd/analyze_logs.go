@@ -21,6 +21,10 @@ type AnalyzeLogs struct {
 	SystemdUnits map[string]types.SystemdUnit
 }
 
+func (d AnalyzeLogs) Name() string {
+	return "AnalyzeLogs"
+}
+
 func (d AnalyzeLogs) Description() string {
 	return "Check for problems in systemd service logs since each service last started"
 }

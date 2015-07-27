@@ -7,7 +7,6 @@ import (
 	kapi "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	kclientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
 
-	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
@@ -27,8 +26,10 @@ This will be used by default to contact your OpenShift server.
 type ConfigContext struct {
 	KubeConfig  *kclientcmdapi.Config
 	ContextName string
+}
 
-	Log *log.Logger
+func (d ConfigContext) Name() string {
+	return fmt.Sprintf("ConfigContext[%s]", d.ContextName)
 }
 
 func (d ConfigContext) Description() string {
