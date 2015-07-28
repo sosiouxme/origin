@@ -3,7 +3,7 @@ package diagnostics
 import (
 	"fmt"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/util"
-	clientdiagnostics "github.com/openshift/origin/pkg/diagnostics/client"
+	clustdiags "github.com/openshift/origin/pkg/diagnostics/cluster"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
@@ -24,20 +24,22 @@ func (o DiagnosticsOptions) buildClusterDiagnostics() ([]types.Diagnostic, bool 
 	}
 	*/
 
-	_, kubeClient, err := o.Factory.Clients()
-	if err != nil { // failed to create a client...
-		return nil, false, err
-	}
+	_, kubeClient, configErr := o.Factory.Clients()
+	/*
+		if configErr != nil { // failed to create a client...
+			return nil, false, configErr
+		}
+	*/
 
 	diagnostics := []types.Diagnostic{}
 	for _, diagnosticName := range requestedDiagnostics {
 		switch diagnosticName {
 		case "NodeDefinitions":
-			diagnostics = append(diagnostics, clientdiagnostics.NodeDefinition{kubeClient})
+			diagnostics = append(diagnostics, clustdiags.NodeDefinition{kubeClient})
 
 		default:
 			return nil, false, fmt.Errorf("unknown diagnostic: %v", diagnosticName)
 		}
 	}
-	return diagnostics, true, nil
+	return diagnostics, true, configErr
 }

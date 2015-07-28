@@ -22,10 +22,12 @@ func (o DiagnosticsOptions) buildClientDiagnostics() ([]types.Diagnostic, bool /
 	}
 	*/
 
-	kubeConfig, err := o.Factory.OpenShiftClientConfig.RawConfig()
-	if err != nil { // failed to obtain full client configuration
-		return nil, false, err
-	}
+	kubeConfig, configErr := o.Factory.OpenShiftClientConfig.RawConfig()
+	/*
+		if kubeConfig == nil { // failed to obtain any client configuration
+			return nil, false, err
+		} // if there was an error, still run the diagnostic to interpret it.
+	*/
 
 	diagnostics := []types.Diagnostic{}
 	requestedDiagnostics := intersection(util.NewStringSet(o.RequestedDiagnostics...), AvailableClientDiagnostics).List()
@@ -40,5 +42,5 @@ func (o DiagnosticsOptions) buildClientDiagnostics() ([]types.Diagnostic, bool /
 			return nil, false, fmt.Errorf("unknown diagnostic: %v", diagnosticName)
 		}
 	}
-	return diagnostics, true, nil
+	return diagnostics, true, configErr
 }

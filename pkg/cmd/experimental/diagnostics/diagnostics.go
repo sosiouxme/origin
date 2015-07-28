@@ -13,6 +13,7 @@ import (
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 
 	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics/options"
+	"github.com/openshift/origin/pkg/cmd/flagtypes"
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
@@ -102,9 +103,10 @@ func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.C
 	cmd.Flags().AddFlag(o.ClientFlags.Lookup("config"))
 	cmd.Flags().AddFlag(o.ClientFlags.Lookup("context"))
 	cmd.Flags().StringVar(&o.ClientClusterContext, "cluster-context", "", "client context to use for cluster administrator")
-	cmd.Flags().StringVar(&o.MasterConfigLocation, "master-config", "", "path to master config file")
-	cmd.Flags().StringVar(&o.NodeConfigLocation, "node-config", "", "path to node config file")
+	cmd.Flags().StringVar(&o.MasterConfigLocation, "master-config", "", "path to master config file (implies --host)")
+	cmd.Flags().StringVar(&o.NodeConfigLocation, "node-config", "", "path to node config file (implies --host)")
 	cmd.Flags().BoolVar(&o.IsHost, "host", false, "look for systemd and journald units even without master/node config")
+	flagtypes.GLog(cmd.Flags())
 	options.BindLoggerOptionFlags(cmd.Flags(), o.LogOptions, options.RecommendedLoggerOptionFlags())
 	options.BindDiagnosticFlag(cmd.Flags(), &o.RequestedDiagnostics, options.NewRecommendedDiagnosticFlag())
 

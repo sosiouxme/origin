@@ -1,4 +1,4 @@
-package client
+package cluster
 
 // The purpose of this diagnostic is to detect nodes that are out of commission
 // (which may affect the ability to schedule pods) for user awareness.
