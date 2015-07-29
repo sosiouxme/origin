@@ -207,6 +207,9 @@ func (l *Logger) Error(id string, text string) {
 func (l *Logger) Errorf(id string, msg string, a ...interface{}) {
 	l.logf(ErrorLevel, id, msg, a...)
 }
+func (l *Logger) Errort(id string, template string, data interface{}) {
+	l.logt(ErrorLevel, id, template, data)
+}
 func (l *Logger) Warn(id string, text string) {
 	l.logp(WarnLevel, id, text)
 }

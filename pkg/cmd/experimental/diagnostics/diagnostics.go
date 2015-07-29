@@ -23,6 +23,7 @@ var (
 )
 
 func init() {
+	AvailableDiagnostics.Insert(AvailableClientConfigDiagnostics.List()...)
 	AvailableDiagnostics.Insert(AvailableClientDiagnostics.List()...)
 	AvailableDiagnostics.Insert(AvailableClusterDiagnostics.List()...)
 	AvailableDiagnostics.Insert(AvailableHostDiagnostics.List()...)
@@ -128,25 +129,33 @@ func (o DiagnosticsOptions) RunDiagnostics() (bool, error, int, int) {
 	errors := []error{}
 	diagnostics := map[string][]types.Diagnostic{}
 
-	func() { // don't trust discover/build of diagnostics, wrap panic nicely in case of developer error
+	func() { // don't trust discover/build of diagnostics; wrap panic nicely in case of developer error
 		defer func() {
 			if r := recover(); r != nil {
 				failed = true
 				errors = append(errors, fmt.Errorf("While building the diagnostics, a panic was encountered.\nThis is a bug in diagnostics. Stack trace follows : \n%v", r))
 			}
 		}()
-		if clientDiags, ok, err := o.buildClientDiagnostics(); ok {
-			diagnostics["client"] = clientDiags
-		} else if err != nil {
-			failed = true
+		if detected, detectErrors := o.detectClientConfig(); !detected { // there just plain isn't any client config file available (problems may have been detected and logged)
+			o.Logger.Notice("discNoClientConf", "No client configuration specified; skipping client and cluster diagnostics.")
+			errors = append(errors, detectErrors...)
+		} else if rawConfig, err := o.buildRawConfig(); err != nil { // basically, no client config exists or it's totally broken
+			o.Logger.Errorf("discBrokenClientConf", "Client configuration failed to load; skipping client and cluster diagnostics due to error: {{.error}}", log.Hash{"error": err.Error()})
 			errors = append(errors, err)
-		}
+		} else {
+			if clientDiags, ok, err := o.buildClientDiagnostics(rawConfig); ok {
+				diagnostics["client"] = clientDiags
+			} else if err != nil {
+				failed = true
+				errors = append(errors, err)
+			}
 
-		if clusterDiags, ok, err := o.buildClusterDiagnostics(); ok {
-			diagnostics["cluster"] = clusterDiags
-		} else if err != nil {
-			failed = true
-			errors = append(errors, err)
+			if clusterDiags, ok, err := o.buildClusterDiagnostics(rawConfig); ok {
+				diagnostics["cluster"] = clusterDiags
+			} else if err != nil {
+				failed = true
+				errors = append(errors, err)
+			}
 		}
 
 		if hostDiags, ok, err := o.buildHostDiagnostics(); ok {
@@ -161,29 +170,44 @@ func (o DiagnosticsOptions) RunDiagnostics() (bool, error, int, int) {
 		return failed, kutilerrors.NewAggregate(errors), 0, len(errors)
 	}
 
+	return o.Run(diagnostics)
+}
+
+func (o DiagnosticsOptions) Run(diagnostics map[string][]types.Diagnostic) (bool, error, int, int) {
 	warnCount := 0
 	errorCount := 0
 	for area, areaDiagnostics := range diagnostics {
 		for _, diagnostic := range areaDiagnostics {
-			if canRun, reason := diagnostic.CanRun(); !canRun {
-				if reason == nil {
-					o.Logger.Noticet("diagSkip", "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}",
-						log.Hash{"area": area, "name": diagnostic.Name(), "diag": diagnostic.Description()})
-				} else {
-					o.Logger.Noticet("diagSkip", "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}\nBecause: {{.reason}}",
-						log.Hash{"area": area, "name": diagnostic.Name(), "diag": diagnostic.Description(), "reason": reason.Error()})
-				}
-				continue
-			}
+			func() { // wrap diagnostic panic nicely in case of developer error
+				defer func() {
+					if r := recover(); r != nil {
+						errorCount += 1
+						o.Logger.Errort("diagPanic",
+							"While running the {{.area}}.{{.name}} diagnostic, a panic was encountered.\nThis is a bug in diagnostics. Stack trace follows : \n{{.error}}",
+							log.Hash{"area": area, "name": diagnostic.Name(), "error": fmt.Sprintf("%v", r)})
+					}
+				}()
 
-			o.Logger.Noticet("diagRun", "Running diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}",
-				log.Hash{"area": area, "name": diagnostic.Name(), "diag": diagnostic.Description()})
-			r := diagnostic.Check()
-			for _, entry := range r.Logs() {
-				o.Logger.LogEntry(entry)
-			}
-			warnCount += len(r.Warnings())
-			errorCount += len(r.Errors())
+				if canRun, reason := diagnostic.CanRun(); !canRun {
+					if reason == nil {
+						o.Logger.Noticet("diagSkip", "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}",
+							log.Hash{"area": area, "name": diagnostic.Name(), "diag": diagnostic.Description()})
+					} else {
+						o.Logger.Noticet("diagSkip", "Skipping diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}\nBecause: {{.reason}}",
+							log.Hash{"area": area, "name": diagnostic.Name(), "diag": diagnostic.Description(), "reason": reason.Error()})
+					}
+					return
+				}
+
+				o.Logger.Noticet("diagRun", "Running diagnostic: {{.area}}.{{.name}}\nDescription: {{.diag}}",
+					log.Hash{"area": area, "name": diagnostic.Name(), "diag": diagnostic.Description()})
+				r := diagnostic.Check()
+				for _, entry := range r.Logs() {
+					o.Logger.LogEntry(entry)
+				}
+				warnCount += len(r.Warnings())
+				errorCount += len(r.Errors())
+			}()
 		}
 
 	}
