@@ -38,12 +38,11 @@ func (i FlagInfo) BindListFlag(flags *pflag.FlagSet, target *kutil.StringList) {
 }
 
 const (
-	FlagAllClientConfigName = "client-config"
-	FlagAllMasterConfigName = "master-config"
-	FlagAllNodeConfigName   = "node-config"
-	FlagDiagnosticsName     = "diagnostics"
-	FlagLevelName           = "diaglevel"
-	FlagFormatName          = "output"
-	FlagMasterConfigName    = "config"
-	FlagNodeConfigName      = "config"
+	FlagMasterConfigName   = "master-config"
+	FlagNodeConfigName     = "node-config"
+	FlagClusterContextName = "cluster-context"
+	FlagDiagnosticsName    = "diagnostics"
+	FlagLevelName          = "diaglevel"
+	FlagFormatName         = "output"
+	FlagIsHostName         = "host"
 )

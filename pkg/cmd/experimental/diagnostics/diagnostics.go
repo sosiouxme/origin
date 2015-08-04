@@ -10,10 +10,11 @@ import (
 	kcmdutil "github.com/GoogleCloudPlatform/kubernetes/pkg/kubectl/cmd/util"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/util"
 	kutilerrors "github.com/GoogleCloudPlatform/kubernetes/pkg/util/errors"
+	"github.com/openshift/origin/pkg/cmd/cli/config"
+	"github.com/openshift/origin/pkg/cmd/flagtypes"
 	osclientcmd "github.com/openshift/origin/pkg/cmd/util/clientcmd"
 
 	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics/options"
-	"github.com/openshift/origin/pkg/cmd/flagtypes"
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
@@ -23,7 +24,6 @@ var (
 )
 
 func init() {
-	AvailableDiagnostics.Insert(AvailableClientConfigDiagnostics.List()...)
 	AvailableDiagnostics.Insert(AvailableClientDiagnostics.List()...)
 	AvailableDiagnostics.Insert(AvailableClusterDiagnostics.List()...)
 	AvailableDiagnostics.Insert(AvailableHostDiagnostics.List()...)
@@ -44,7 +44,7 @@ type DiagnosticsOptions struct {
 	Logger     *log.Logger
 }
 
-const longAllDescription = `
+const longDescription = `
 OpenShift Diagnostics
 
 This command helps you understand and troubleshoot OpenShift. It is
@@ -82,7 +82,7 @@ func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.C
 	cmd := &cobra.Command{
 		Use:   name,
 		Short: "This utility helps you understand and troubleshoot OpenShift v3.",
-		Long:  fmt.Sprintf(longAllDescription, fullName),
+		Long:  fmt.Sprintf(longDescription, fullName),
 		Run: func(c *cobra.Command, args []string) {
 			kcmdutil.CheckErr(o.Complete())
 
@@ -99,14 +99,14 @@ func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.C
 	}
 	cmd.SetOutput(out) // for output re: usage / help
 
-	o.ClientFlags = flag.NewFlagSet("client", flag.ContinueOnError) // hide extensive set of client flags
+	o.ClientFlags = flag.NewFlagSet("client", flag.ContinueOnError) // hide the extensive set of client flags
 	o.Factory = osclientcmd.New(o.ClientFlags)                      // that would otherwise be added to this command
-	cmd.Flags().AddFlag(o.ClientFlags.Lookup("config"))
-	cmd.Flags().AddFlag(o.ClientFlags.Lookup("context"))
-	cmd.Flags().StringVar(&o.ClientClusterContext, "cluster-context", "", "client context to use for cluster administrator")
-	cmd.Flags().StringVar(&o.MasterConfigLocation, "master-config", "", "path to master config file (implies --host)")
-	cmd.Flags().StringVar(&o.NodeConfigLocation, "node-config", "", "path to node config file (implies --host)")
-	cmd.Flags().BoolVar(&o.IsHost, "host", false, "look for systemd and journald units even without master/node config")
+	cmd.Flags().AddFlag(o.ClientFlags.Lookup(config.OpenShiftConfigFlagName))
+	cmd.Flags().AddFlag(o.ClientFlags.Lookup("context")) // TODO: find k8s constant
+	cmd.Flags().StringVar(&o.ClientClusterContext, options.FlagClusterContextName, "", "client context to use for cluster administrator")
+	cmd.Flags().StringVar(&o.MasterConfigLocation, options.FlagMasterConfigName, "", "path to master config file (implies --host)")
+	cmd.Flags().StringVar(&o.NodeConfigLocation, options.FlagNodeConfigName, "", "path to node config file (implies --host)")
+	cmd.Flags().BoolVar(&o.IsHost, options.FlagIsHostName, false, "look for systemd and journald units even without master/node config")
 	flagtypes.GLog(cmd.Flags())
 	options.BindLoggerOptionFlags(cmd.Flags(), o.LogOptions, options.RecommendedLoggerOptionFlags())
 	options.BindDiagnosticFlag(cmd.Flags(), &o.RequestedDiagnostics, options.NewRecommendedDiagnosticFlag())
@@ -126,23 +126,34 @@ func (o *DiagnosticsOptions) Complete() error {
 
 func (o DiagnosticsOptions) RunDiagnostics() (bool, error, int, int) {
 	failed := false
+	warnings := []error{}
 	errors := []error{}
 	diagnostics := map[string][]types.Diagnostic{}
 
-	func() { // don't trust discover/build of diagnostics; wrap panic nicely in case of developer error
+	func() { // don't trust discovery/build of diagnostics; wrap panic nicely in case of developer error
 		defer func() {
 			if r := recover(); r != nil {
 				failed = true
 				errors = append(errors, fmt.Errorf("While building the diagnostics, a panic was encountered.\nThis is a bug in diagnostics. Stack trace follows : \n%v", r))
 			}
 		}()
-		if detected, detectErrors := o.detectClientConfig(); !detected { // there just plain isn't any client config file available (problems may have been detected and logged)
+		detected, detectWarnings, detectErrors := o.detectClientConfig() // may log and return problems
+		for _, warn := range detectWarnings {
+			warnings = append(warnings, warn)
+		}
+		for _, err := range detectErrors {
+			errors = append(errors, err)
+		}
+		if !detected { // there just plain isn't any client config file available
 			o.Logger.Notice("discNoClientConf", "No client configuration specified; skipping client and cluster diagnostics.")
-			errors = append(errors, detectErrors...)
-		} else if rawConfig, err := o.buildRawConfig(); err != nil { // basically, no client config exists or it's totally broken
+		} else if rawConfig, err := o.buildRawConfig(); rawConfig == nil { // client config is totally broken - won't parse etc (problems may have been detected and logged)
 			o.Logger.Errorf("discBrokenClientConf", "Client configuration failed to load; skipping client and cluster diagnostics due to error: {{.error}}", log.Hash{"error": err.Error()})
 			errors = append(errors, err)
 		} else {
+			if err != nil { // error encountered, proceed with caution
+				o.Logger.Errorf("discClientConfErr", "Client configuration loading encountered an error, but proceeding anyway. Error was:\n{{.error}}", log.Hash{"error": err.Error()})
+				errors = append(errors, err)
+			}
 			if clientDiags, ok, err := o.buildClientDiagnostics(rawConfig); ok {
 				diagnostics["client"] = clientDiags
 			} else if err != nil {
@@ -167,7 +178,7 @@ func (o DiagnosticsOptions) RunDiagnostics() (bool, error, int, int) {
 	}()
 
 	if failed {
-		return failed, kutilerrors.NewAggregate(errors), 0, len(errors)
+		return failed, kutilerrors.NewAggregate(errors), len(warnings), len(errors)
 	}
 
 	return o.Run(diagnostics)

@@ -1,94 +1,151 @@
 package client
 
 import (
-	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 
-	kapi "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
-	kclientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd"
+	flag "github.com/spf13/pflag"
 
+	"github.com/openshift/origin/pkg/cmd/cli/config"
+	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
-const (
-	currentContextMissing = `Your client config specifies a current context of '{{.context}}'
-which is not defined; it is likely that a mistake was introduced while
-manually editing your config. If this is a simple typo, you may be
-able to fix it manually.
-The OpenShift master creates a fresh config when it is started; it may be
-useful to use this as a base if available.`
+// This diagnostic is a little special in that it is run separately as a precondition
+// in order to determine whether we can run other dependent diagnostics
 
-	currentContextSummary = `The current context from client config is '{{.context}}'
-This will be used by default to contact your OpenShift server.
-`
-)
-
-type ConfigContext struct {
-	KubeConfig  *kclientcmdapi.Config
-	ContextName string
+type ConfigLoading struct {
+	ConfFlagName   string
+	ClientFlags    *flag.FlagSet
+	successfulLoad bool // set if at least one file loaded
 }
 
-func (d ConfigContext) Name() string {
-	return fmt.Sprintf("ConfigContext[%s]", d.ContextName)
+func (d *ConfigLoading) Name() string {
+	return "ConfigLoading"
 }
 
-func (d ConfigContext) Description() string {
-	return "Test that client config contexts have no undefined references"
+func (d *ConfigLoading) Description() string {
+	return "Try to load client config file(s) and report what happens"
 }
 
-func (d ConfigContext) CanRun() (bool, error) {
-	if d.KubeConfig == nil {
-		// TODO make prettier?
-		return false, errors.New("There is no client config file")
-	}
-
-	if len(d.ContextName) == 0 {
-		return false, errors.New("There is no current context")
-	}
-
+func (d *ConfigLoading) CanRun() (bool, error) {
 	return true, nil
 }
 
-func (d ConfigContext) Check() *types.DiagnosticResult {
-	r := types.NewDiagnosticResult("ConfigContext")
+func (d *ConfigLoading) SuccessfulLoad() bool {
+	return d.successfulLoad
+}
 
-	isDefaultContext := d.KubeConfig.CurrentContext == d.ContextName
+func (d *ConfigLoading) Check() *types.DiagnosticResult {
+	r := types.NewDiagnosticResult("ConfigLoading")
+	confFlagValue := d.ClientFlags.Lookup(d.ConfFlagName).Value.String()
 
-	errorKey := "clientCfgError"
-	unusableLine := fmt.Sprintf("The client config context '%s' is unusable", d.ContextName)
-	if isDefaultContext {
-		errorKey = "currentccError"
-		unusableLine = fmt.Sprintf("The current client config context '%s' is unusable", d.ContextName)
-	}
+	var foundPath string
+	rules := config.NewOpenShiftClientConfigLoadingRules()
+	paths := append([]string{confFlagValue}, rules.Precedence...)
+	for index, path := range paths {
+		errmsg := ""
+		switch index {
+		case 0:
+			errmsg = fmt.Sprintf("--%s specified that client config should be at %s\n", d.ConfFlagName, path)
+		case len(paths) - 1: // config in ~/.kube
+		// no error message indicated if it is not there... user didn't say it would be
+		default: // can be multiple paths from the env var in theory; all cases should go here
+			if len(os.Getenv(config.OpenShiftConfigPathEnvVar)) != 0 {
+				errmsg = fmt.Sprintf("Env var %s specified that client config could be at %s\n", config.OpenShiftConfigPathEnvVar, path)
+			}
+		}
 
-	context, exists := d.KubeConfig.Contexts[d.ContextName]
-	if !exists {
-		r.Errorf(errorKey, nil, "%s:\n Client config context '%s' is not defined.", unusableLine, d.ContextName)
-		return r
+		if d.canOpenConfigFile(path, errmsg, r) && foundPath == "" {
+			d.successfulLoad = true
+			foundPath = path
+		}
 	}
-
-	clusterName := context.Cluster
-	cluster, exists := d.KubeConfig.Clusters[clusterName]
-	if !exists {
-		r.Errorf(errorKey, nil, "%s:\n Client config context '%s' has a cluster '%s' which is not defined.", unusableLine, d.ContextName, clusterName)
-		return r
+	if foundPath != "" {
+		if confFlagValue != "" && confFlagValue != foundPath {
+			// found config but not where --config said
+			r.Errorf("discCCnotFlag", nil, `
+The client configuration file was not found where the --%s flag indicated:
+  %s
+A config file was found at the following location:
+  %s
+If you wish to use this file for client configuration, you can specify it
+with the --%[1]s flag, or just not specify the flag.
+			`, d.ConfFlagName, confFlagValue, foundPath)
+		}
+	} else { // not found, check for master-generated ones to recommend
+		if confFlagValue != "" {
+			r.Errorf("discCCnotFlag", nil, "Did not find config file where --%s=%s indicated", d.ConfFlagName, confFlagValue)
+		}
+		adminWarningF := `
+No client config file was available; however, one exists at
+  %[1]s
+which is a standard location where the master generates it.
+If this is what you want to use, you should copy it to a standard location
+(~/.config/openshift/.config, or the current directory), or you can set the
+environment variable %[1] in your ~/.bash_profile:
+  export %[1]=%[2]s
+If this is not what you want, you should obtain a config file and
+place it in a standard location.
+`
+		adminPaths := []string{
+			"/etc/openshift/master/admin.kubeconfig",           // enterprise
+			"/openshift.local.config/master/admin.kubeconfig",  // origin systemd
+			"./openshift.local.config/master/admin.kubeconfig", // origin binary
+		}
+		// look for it in auto-generated locations when not found properly
+		for _, path := range adminPaths {
+			msg := fmt.Sprintf("Looking for a possible client config at %s\n", d.ConfFlagName, path)
+			if d.canOpenConfigFile(path, msg, r) {
+				r.Warnf("discCCautoPath", nil, adminWarningF, config.OpenShiftConfigPathEnvVar, path)
+				break
+			}
+		}
 	}
-	authName := context.AuthInfo
-	if _, exists := d.KubeConfig.AuthInfos[authName]; !exists {
-		r.Errorf(errorKey, nil, "%s:\n Client config context '%s' has a user identity '%s' which is not defined.", unusableLine, d.ContextName, authName)
-		return r
-	}
-
-	project := context.Namespace
-	if project == "" {
-		project = kapi.NamespaceDefault // OpenShift/k8s fills this in if missing
-	}
-
-	// TODO: actually send a request to see if can connect
-	text := "For client config context '%s':\n The server URL is '%s'\nThe user authentication is '%s'\nThe current project is '%s'"
-	if isDefaultContext {
-		text = "The current client config context is '%s':\n The server URL is '%s'\nThe user authentication is '%s'\nThe current project is '%s'"
-	}
-	r.Infof("ccInfo", text, d.ContextName, cluster.Server, authName, project)
 	return r
+}
+
+// ----------------------------------------------------------
+// Attempt to open file at path as client config
+// If there is a problem and errmsg is set, log an error
+func (d ConfigLoading) canOpenConfigFile(path string, errmsg string, r *types.DiagnosticResult) bool {
+	var file *os.File
+	var err error
+	if path == "" { // empty param/envvar
+		return false
+	} else if file, err = os.Open(path); err == nil {
+		r.Debugt("discOpenCC", "Reading client config at {{.path}}", log.Hash{"path": path})
+	} else if errmsg == "" {
+		r.Debugf("discOpenCCNo", "Could not read client config at %s:\n%#v", path, err)
+	} else if os.IsNotExist(err) {
+		r.Debug("discOpenCCNoExist", errmsg+"but that file does not exist.")
+	} else if os.IsPermission(err) {
+		r.Error("discOpenCCNoPerm", err, errmsg+"but lack permission to read that file.")
+	} else {
+		r.Errorf("discOpenCCErr", err, "%sbut there was an error opening it:\n%#v", errmsg, err)
+	}
+	if file != nil { // it is open for reading
+		defer file.Close()
+		if buffer, err := ioutil.ReadAll(file); err != nil {
+			r.Errorf("discCCReadErr", err, "Unexpected error while reading client config file (%s): %v", path, err)
+		} else if _, err := clientcmd.Load(buffer); err != nil {
+			r.Errorf("discCCYamlErr", err, `
+Error reading YAML from client config file (%s):
+  %v
+This file may have been truncated or mis-edited.
+Please fix, remove, or obtain a new client config`, file.Name(), err)
+		} else {
+			r.Infof("discCCRead", "Successfully read a client config file at '%s'", path)
+			/* Note, we're not going to use this config file directly.
+			 * Instead, we'll defer to the openshift client code to assimilate
+			 * flags, env vars, and the potential hierarchy of config files
+			 * into an actual configuration that the client uses.
+			 * However, for diagnostic purposes, record the files we find.
+			 */
+			return true
+		}
+	}
+	return false
 }

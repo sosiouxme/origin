@@ -55,6 +55,10 @@ func (r *DiagnosticResult) appendLogs(stackDepth int, entry ...log.Entry) {
 	}
 }
 
+func (r *DiagnosticResult) Failure() bool {
+	return r.failure
+}
+
 func (r *DiagnosticResult) Logs() []log.Entry {
 	if r.logs == nil {
 		return make([]log.Entry, 0)

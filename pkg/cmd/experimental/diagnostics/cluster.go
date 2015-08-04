@@ -2,7 +2,9 @@ package diagnostics
 
 import (
 	"fmt"
+	clientcmdapi "github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/util"
+
 	clustdiags "github.com/openshift/origin/pkg/diagnostics/cluster"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
@@ -11,7 +13,7 @@ var (
 	AvailableClusterDiagnostics = util.NewStringSet("NodeDefinitions")
 )
 
-func (o DiagnosticsOptions) buildClusterDiagnostics() ([]types.Diagnostic, bool /* ok */, error) {
+func (o DiagnosticsOptions) buildClusterDiagnostics(rawConfig *clientcmdapi.Config) ([]types.Diagnostic, bool /* ok */, error) {
 	requestedDiagnostics := intersection(util.NewStringSet(o.RequestedDiagnostics...), AvailableClusterDiagnostics).List()
 	if len(requestedDiagnostics) == 0 { // no diagnostics to run here
 		return nil, true, nil // don't waste time on discovery
