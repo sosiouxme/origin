@@ -36,7 +36,7 @@ func (d NodeConfigCheck) Check() *types.DiagnosticResult {
 		return r
 	}
 
-	r.Infof("discNCfound", "Found a node config file:\n%[1]s", d.NodeConfigFile)
+	r.Infof("discNCfound", "Found a node config file: %[1]s", d.NodeConfigFile)
 
 	for _, err := range configvalidation.ValidateNodeConfig(nodeConfig) {
 		r.Errorf("discNCinvalid", err, "Validation of node config file '%s' failed:\n(%T) %[2]v", d.NodeConfigFile, err)

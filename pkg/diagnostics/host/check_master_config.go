@@ -37,7 +37,7 @@ func (d MasterConfigCheck) Check() *types.DiagnosticResult {
 		return r
 	}
 
-	r.Infof("discMCfound", "Found a master config file:\n%[1]s", d.MasterConfigFile)
+	r.Infof("discMCfound", "Found a master config file: %[1]s", d.MasterConfigFile)
 
 	for _, err := range configvalidation.ValidateMasterConfig(masterConfig).Errors {
 		r.Errorf("discMCinvalid", err, "Validation of master config file '%s' failed:\n(%T) %[2]v", d.MasterConfigFile, err)

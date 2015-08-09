@@ -46,19 +46,19 @@ other options for 'oadm manage-node').
 )
 
 // NodeDefinitions
-type NodeDefinition struct {
+type NodeDefinitions struct {
 	KubeClient *kclient.Client
 }
 
-func (d NodeDefinition) Name() string {
-	return "NodeDefinition"
+func (d NodeDefinitions) Name() string {
+	return "NodeDefinitions"
 }
 
-func (d NodeDefinition) Description() string {
+func (d NodeDefinitions) Description() string {
 	return "Check node records on master"
 }
 
-func (d NodeDefinition) CanRun() (bool, error) {
+func (d NodeDefinitions) CanRun() (bool, error) {
 	if d.KubeClient == nil {
 		return false, errors.New("must have kube client")
 	}
@@ -72,7 +72,7 @@ func (d NodeDefinition) CanRun() (bool, error) {
 	return true, nil
 }
 
-func (d NodeDefinition) Check() *types.DiagnosticResult {
+func (d NodeDefinitions) Check() *types.DiagnosticResult {
 	r := types.NewDiagnosticResult("NodeDefinition")
 
 	nodes, err := d.KubeClient.Nodes().List(labels.LabelSelector{}, fields.Everything())
