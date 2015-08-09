@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"os/exec"
+	"strconv"
+	"time"
 
 	"github.com/openshift/origin/pkg/diagnostics/log"
 	"github.com/openshift/origin/pkg/diagnostics/types"
@@ -26,7 +28,7 @@ func (d AnalyzeLogs) Name() string {
 }
 
 func (d AnalyzeLogs) Description() string {
-	return "Check for problems in systemd service logs since each service last started"
+	return "Check for recent problems in systemd service logs"
 }
 
 func (d AnalyzeLogs) CanRun() (bool, error) {
@@ -61,20 +63,25 @@ func (d AnalyzeLogs) Check() *types.DiagnosticResult {
 				reader.Close()
 				cmd.Wait()
 			}()
-			entryTemplate := logEntry{Message: `json:"MESSAGE"`}
+			timeLimit := time.Now().Add(-time.Hour)                     // if it didn't happen in the last hour, probably not too relevant
 			matchCopy := append([]logMatcher(nil), unit.LogMatchers...) // make a copy, will remove matchers after they match something
-			for lineReader.Scan() {                                     // each log entry is a line
+			lineCount := 0                                              // each log entry is a line
+			for lineReader.Scan() {
+				lineCount += 1
 				if len(matchCopy) == 0 { // if no rules remain to match
 					break // don't waste time reading more log entries
 				}
-				bytes, entry := lineReader.Bytes(), entryTemplate
+				bytes, entry := lineReader.Bytes(), logEntry{}
 				if err := json.Unmarshal(bytes, &entry); err != nil {
 					r.Debugf("sdLogBadJSON", "Couldn't read the JSON for this log message:\n%s\nGot error %s", string(bytes), errStr(err))
 				} else {
-					if unit.StartMatch.MatchString(entry.Message) {
-						break // saw the log message where the unit started; done looking.
+					if lineCount > 500 && stampTooOld(entry.TimeStamp, timeLimit) {
+						r.Debugf("sdLogTrunc", "Stopped reading %s log: timestamp %s too old", unit.Name, entry.TimeStamp)
+						break // if we've analyzed at least 500 entries, stop when age limit reached (don't scan days of logs)
 					}
-					// TODO: also stop when age limit reached (don't scan days of logs)
+					if unit.StartMatch.MatchString(entry.Message) {
+						break // saw log message for unit startup; don't analyze previous logs
+					}
 					for index, match := range matchCopy { // match log message against provided matchers
 						if strings := match.Regexp.FindStringSubmatch(entry.Message); strings != nil {
 							// if matches: print interpretation, remove from matchCopy, and go on to next log entry
@@ -112,4 +119,11 @@ func (d AnalyzeLogs) Check() *types.DiagnosticResult {
 	}
 
 	return r
+}
+
+func stampTooOld(stamp string, timeLimit time.Time) bool {
+	if epochns, err := strconv.ParseInt(stamp, 10, 64); err == nil {
+		return time.Unix(epochns/1000000, 0).Before(timeLimit)
+	}
+	return true // something went wrong, stop looking...
 }

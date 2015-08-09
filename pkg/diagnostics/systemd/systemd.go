@@ -9,7 +9,8 @@ import (
 )
 
 type logEntry struct {
-	Message string // I feel certain we will want more fields at some point
+	Message   string `json:"MESSAGE"`
+	TimeStamp string `json:"__REALTIME_TIMESTAMP"` // epoch + ms
 }
 
 type logMatcher struct { // regex for scanning log messages and interpreting them when found
