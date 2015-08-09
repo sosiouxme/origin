@@ -109,7 +109,7 @@ func (r *DiagnosticResult) Append(r2 *DiagnosticResult) {
 // basic ingress functions (private)
 func (r *DiagnosticResult) caller(depth int) string {
 	if _, file, line, ok := runtime.Caller(depth + 1); ok {
-		paths := strings.SplitAfter(file, "_output/local/go/")
+		paths := strings.SplitAfter(file, "github.com/")
 		return fmt.Sprintf("diagnostic %s@%s:%d", r.origin, paths[len(paths)-1], line)
 	}
 	return "diagnostic " + r.origin
