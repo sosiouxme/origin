@@ -248,7 +248,8 @@ func (l *Logger) Debugf(id string, msg string, a ...interface{}) {
 
 func origin(skip int) string {
 	if _, file, _, ok := runtime.Caller(skip + 1); ok {
-		return "controller " + file
+		paths := strings.SplitAfter(file, "_output/local/go/")
+		return "controller " + paths[len(paths)-1]
 	} else {
 		return "unknown"
 	}

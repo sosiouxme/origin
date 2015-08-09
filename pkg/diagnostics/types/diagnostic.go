@@ -6,8 +6,10 @@ package types
 import (
 	"fmt"
 	"github.com/golang/glog"
-	"github.com/openshift/origin/pkg/diagnostics/log"
 	"runtime"
+	"strings"
+
+	"github.com/openshift/origin/pkg/diagnostics/log"
 )
 
 type Diagnostic interface {
@@ -107,7 +109,8 @@ func (r *DiagnosticResult) Append(r2 *DiagnosticResult) {
 // basic ingress functions (private)
 func (r *DiagnosticResult) caller(depth int) string {
 	if _, file, line, ok := runtime.Caller(depth + 1); ok {
-		return fmt.Sprintf("diagnostic %s@%s:%d", r.origin, file, line)
+		paths := strings.SplitAfter(file, "_output/local/go/")
+		return fmt.Sprintf("diagnostic %s@%s:%d", r.origin, paths[len(paths)-1], line)
 	}
 	return "diagnostic " + r.origin
 }
