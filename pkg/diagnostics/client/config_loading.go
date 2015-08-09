@@ -81,14 +81,14 @@ with the --%[1]s flag, or just not specify the flag.
 		}
 		adminWarningF := `
 No client config file was available; however, one exists at
-  %[1]s
-which is a standard location where the master generates it.
-If this is what you want to use, you should copy it to a standard location
-(~/.config/openshift/.config, or the current directory), or you can set the
-environment variable %[1] in your ~/.bash_profile:
-  export %[1]=%[2]s
-If this is not what you want, you should obtain a config file and
-place it in a standard location.
+    %[2]s
+which may have been generated automatically by the master.
+If you want to use this config, you should copy it to the
+standard location (%[3]s),
+or you can set the environment variable %[1]s:
+    export %[1]s=%[2]s
+If not, obtain a config file and place it in the standard
+location for use by the client and diagnostics.
 `
 		adminPaths := []string{
 			"/etc/openshift/master/admin.kubeconfig",           // enterprise
@@ -99,7 +99,7 @@ place it in a standard location.
 		for _, path := range adminPaths {
 			msg := fmt.Sprintf("Looking for a possible client config at %s\n", d.ConfFlagName, path)
 			if d.canOpenConfigFile(path, msg, r) {
-				r.Warnf("discCCautoPath", nil, adminWarningF, config.OpenShiftConfigPathEnvVar, path)
+				r.Warnf("discCCautoPath", nil, adminWarningF, config.OpenShiftConfigPathEnvVar, path, config.RecommendedHomeFile)
 				break
 			}
 		}

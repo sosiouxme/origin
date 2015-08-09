@@ -36,13 +36,10 @@ func (d UnitStatus) Check() *types.DiagnosticResult {
 
 	unitRequiresUnit(r, d.SystemdUnits["openshift-node"], d.SystemdUnits["iptables"], nodeRequiresIPTables)
 	unitRequiresUnit(r, d.SystemdUnits["openshift-node"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`)
+	unitRequiresUnit(r, d.SystemdUnits["openshift-node"], d.SystemdUnits["openvswitch"], sdUnitSDNreqOVS)
+	unitRequiresUnit(r, d.SystemdUnits["openshift-master"], d.SystemdUnits["openvswitch"], `OpenShift masters use openvswitch for access to cluster SDN networking`)
+	// all-in-one networking *could* be simpler, so fewer checks
 	unitRequiresUnit(r, d.SystemdUnits["openshift"], d.SystemdUnits["docker"], `OpenShift nodes use Docker to run containers.`)
-
-	// node's dependency on openvswitch is a special case.
-	// We do not need to enable ovs because openshift-node starts it for us.
-	if d.SystemdUnits["openshift-node"].Active && !d.SystemdUnits["openvswitch"].Active {
-		r.Error("sdUnitSDNreqOVS", nil, sdUnitSDNreqOVS)
-	}
 
 	// Anything that is enabled but not running deserves notice
 	for name, unit := range d.SystemdUnits {
@@ -60,8 +57,6 @@ func unitRequiresUnit(r *types.DiagnosticResult, unit types.SystemdUnit, require
 		r.Errort("sdUnitReqLoaded", nil, sdUnitReqLoaded, templateData)
 	} else if unit.Active && !requires.Active {
 		r.Errort("sdUnitReqActive", nil, sdUnitReqActive, templateData)
-	} else if unit.Enabled && !requires.Enabled {
-		r.Warnt("sdUnitReqEnabled", nil, sdUnitReqEnabled, templateData)
 	}
 }
 
@@ -127,13 +122,5 @@ To ensure it is not failing to run, check the status and logs with:
 
   # systemctl status {{.required}}
   # journalctl -ru {{.required}}
-  `
-
-	sdUnitReqEnabled = `
-systemd unit {{.unit}} is enabled to run automatically at boot, but {{.required}} is not.
-{{.reason}}
-An administrator can enable the {{.required}} unit with:
-
-  # systemctl enable {{.required}}
   `
 )
