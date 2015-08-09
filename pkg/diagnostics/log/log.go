@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"text/template"
+
+	"github.com/openshift/origin/pkg/version"
 )
 
 type LoggerOptions struct {
@@ -149,12 +151,12 @@ var (
 
 // Provide a summary at the end
 func (l *Logger) Summary(warningsSeen int, errorsSeen int) {
-	l.Notice("summary", "\nSummary of diagnostics execution:\n")
+	l.Noticef("summary", "\nSummary of diagnostics execution (version %v):\n", version.Get())
 	if warningsSeen > 0 {
-		l.Noticef("sumWarn", "Warnings seen: %d", warningsSeen)
+		l.Noticet("sumWarn", "Warnings seen: {{.warnings}}", Hash{"warnings": warningsSeen})
 	}
 	if errorsSeen > 0 {
-		l.Noticef("sumErr", "Errors seen: %d", errorsSeen)
+		l.Noticet("sumErr", "Errors seen: {{.errors}}", Hash{"errors": errorsSeen})
 	}
 	if warningsSeen == 0 && errorsSeen == 0 {
 		l.Notice("sumNone", "Completed with no errors or warnings seen.")
