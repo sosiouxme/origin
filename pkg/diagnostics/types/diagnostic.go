@@ -112,7 +112,7 @@ func (r *DiagnosticResult) caller(depth int) string {
 	return "diagnostic " + r.origin
 }
 func (r *DiagnosticResult) logError(id string, err error, msg *log.Message) {
-	r.appendLogs(2, log.Entry{r.caller(2), id, log.ErrorLevel, *msg})
+	r.appendLogs(2, log.Entry{id, r.caller(2), log.ErrorLevel, *msg})
 	if de, ok := err.(DiagnosticError); ok {
 		r.appendErrors(de)
 	} else {
@@ -120,7 +120,7 @@ func (r *DiagnosticResult) logError(id string, err error, msg *log.Message) {
 	}
 }
 func (r *DiagnosticResult) logWarning(id string, err error, msg *log.Message) {
-	r.appendLogs(2, log.Entry{r.caller(2), id, log.WarnLevel, *msg})
+	r.appendLogs(2, log.Entry{id, r.caller(2), log.WarnLevel, *msg})
 	if de, ok := err.(DiagnosticError); ok {
 		r.appendWarnings(de)
 	} else {
@@ -128,7 +128,7 @@ func (r *DiagnosticResult) logWarning(id string, err error, msg *log.Message) {
 	}
 }
 func (r *DiagnosticResult) logMessage(id string, level log.Level, msg *log.Message) {
-	r.appendLogs(2, log.Entry{r.caller(2), id, level, *msg})
+	r.appendLogs(2, log.Entry{id, r.caller(2), level, *msg})
 }
 
 // Public ingress functions

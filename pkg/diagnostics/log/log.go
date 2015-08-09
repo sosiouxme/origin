@@ -36,6 +36,14 @@ type Level struct {
 	Bright bool
 }
 
+func (l Level) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + l.Name + `"`), nil
+}
+
+func (l Level) MarshalYAML() (interface{}, error) {
+	return l.Name, nil
+}
+
 type Logger struct {
 	loggerType
 	level        Level
@@ -88,14 +96,14 @@ func NewLogger(setLevel int, setFormat string, out io.Writer) (*Logger, error) {
 type Message struct {
 	// ID: an identifier unique to the message being logged, intended for json/yaml output
 	//     so that automation can recognize specific messages without trying to parse them.
-	ID string
+	ID string `json:"-" yaml:"-"`
 	// Template: a template string as understood by text/template that can use any of the
 	//           TemplateData entries in this Message as inputs.
-	Template string
+	Template string `json:"-" yaml:"-"`
 	// TemplateData is passed to template executor to complete the message
-	TemplateData interface{}
+	TemplateData interface{} `json:"data,omitempty" yaml:"data,omitempty"`
 
-	EvaluatedText string // human-readable message text
+	EvaluatedText string `json:"text" yaml:"text"` // human-readable message text
 }
 
 type Hash map[string]interface{} // convenience/cosmetic type
@@ -125,10 +133,10 @@ func (m Message) String() string {
 }
 
 type Entry struct {
-	ID     string
-	Origin string
-	Level
-	Message
+	ID      string `json:"id"`
+	Origin  string `json:"origin"`
+	Level   Level  `json:"level"`
+	Message `yaml:"-,inline"`
 }
 
 var (
@@ -246,13 +254,13 @@ func origin(skip int) string {
 	}
 }
 func (l *Logger) logp(level Level, id string, text string) {
-	l.LogEntry(Entry{origin(1), id, level, Message{ID: id, EvaluatedText: text}})
+	l.LogEntry(Entry{id, origin(1), level, Message{ID: id, EvaluatedText: text}})
 }
 func (l *Logger) logf(level Level, id string, msg string, a ...interface{}) {
-	l.LogEntry(Entry{origin(1), id, level, Message{ID: id, EvaluatedText: fmt.Sprintf(msg, a...)}})
+	l.LogEntry(Entry{id, origin(1), level, Message{ID: id, EvaluatedText: fmt.Sprintf(msg, a...)}})
 }
 func (l *Logger) logt(level Level, id string, template string, data interface{}) {
-	l.LogEntry(Entry{origin(1), id, level, Message{ID: id, Template: template, TemplateData: data}})
+	l.LogEntry(Entry{id, origin(1), level, Message{ID: id, Template: template, TemplateData: data}})
 }
 
 func (l *Logger) Finish() {

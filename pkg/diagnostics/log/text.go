@@ -35,7 +35,7 @@ func (t *textLogger) Write(entry Entry) {
 	if t.ttyOutput {
 		ct.ChangeColor(entry.Level.Color, entry.Level.Bright, ct.None, false)
 	}
-	text := strings.TrimSpace(entry.EvaluatedText)
+	text := strings.TrimSpace(entry.Message.EvaluatedText)
 	if strings.Contains(text, "\n") { // separate multiline comments with newlines
 		if !t.lastNewline {
 			fmt.Fprintln(t.out) // separate from previous one-line log msg
