@@ -37,30 +37,28 @@ type DiagnosticsOptions struct {
 const longDescription = `
 OpenShift Diagnostics
 
-This command helps you understand and troubleshoot OpenShift. It is
-intended to be run from the same context as an OpenShift client or running
-master / node in order to troubleshoot from the perspective of each.
+This command helps you understand and troubleshoot OpenShift. It runs
+diagnostics against an OpenShift cluster as with a client and/or the
+state of a running master / node host.
 
     $ %[1]s
 
-If run without flags or subcommands, it will check for config files for
-client, master, and node, and if found, use them for troubleshooting
-those components. If master/node config files are not found, the tool
-assumes they are not present and does diagnostics only as a client.
-
-You may also specify config files explicitly with flags below, in which
-case you will receive an error if they are invalid or not found.
+If run without flags, it will check for standard config files for
+client, master, and node, and if found, use them for diagnostics.
+You may also specify config files explicitly with flags, in which case
+you will receive an error if they are not found. For example:
 
     $ %[1]s --master-config=/etc/openshift/master/master-config.yaml
 
-Subcommands may be used to scope the troubleshooting to a particular
-component and are not limited to using config files; you can and should
-use the same flags that are actually set on the command line for that
-component to configure the diagnostic.
+* If master/node config files are not found and the --host flag is not
+  present, host diagnostics are skipped.
+* If the client has cluster-admin access, this access enables cluster
+  diagnostics to run which regular users cannot.
+* If a client config file is not found, client and cluster diagnostics
+  are skipped.
 
-    $ %[1]s node --hostname='node.example.com' --kubeconfig=...
-
-NOTE: This is a beta version of diagnostics and may evolve significantly.
+NOTE: This is a beta version of diagnostics and may still evolve in a
+different direction.
 `
 
 func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.Command {
