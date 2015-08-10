@@ -19,16 +19,6 @@ import (
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
-var (
-	AvailableDiagnostics = util.NewStringSet()
-)
-
-func init() {
-	AvailableDiagnostics.Insert(AvailableClientDiagnostics.List()...)
-	AvailableDiagnostics.Insert(AvailableClusterDiagnostics.List()...)
-	AvailableDiagnostics.Insert(AvailableHostDiagnostics.List()...)
-}
-
 type DiagnosticsOptions struct {
 	RequestedDiagnostics util.StringList
 
@@ -75,7 +65,7 @@ NOTE: This is a beta version of diagnostics and may evolve significantly.
 
 func NewCommandDiagnostics(name string, fullName string, out io.Writer) *cobra.Command {
 	o := &DiagnosticsOptions{
-		RequestedDiagnostics: AvailableDiagnostics.List(),
+		RequestedDiagnostics: util.StringList{},
 		LogOptions:           &log.LoggerOptions{Out: out},
 	}
 
@@ -129,6 +119,27 @@ func (o DiagnosticsOptions) RunDiagnostics() (bool, error, int, int) {
 	warnings := []error{}
 	errors := []error{}
 	diagnostics := map[string][]types.Diagnostic{}
+	AvailableDiagnostics := util.NewStringSet()
+	AvailableDiagnostics.Insert(AvailableClientDiagnostics.List()...)
+	AvailableDiagnostics.Insert(AvailableClusterDiagnostics.List()...)
+	AvailableDiagnostics.Insert(AvailableHostDiagnostics.List()...)
+	if len(o.RequestedDiagnostics) == 0 {
+		o.RequestedDiagnostics = AvailableDiagnostics.List()
+	} else if common := intersection(util.NewStringSet(o.RequestedDiagnostics...), AvailableDiagnostics); len(common) == 0 {
+		o.Logger.Errort("emptyReqDiag", "None of the requested diagnostics are available:\n  {{.requested}}\nPlease try from the following:\n  {{.available}}",
+			log.Hash{"requested": o.RequestedDiagnostics, "available": AvailableDiagnostics.List()})
+		return false, fmt.Errorf("No requested diagnostics available"), 0, 1
+	} else if len(common) < len(o.RequestedDiagnostics) {
+		errors = append(errors, fmt.Errorf("Not all requested diagnostics are available"))
+		o.Logger.Errort("notAllReqDiag", `
+Of the requested diagnostics:
+    {{.requested}}
+only these are available:
+    {{.common}}
+The list of all possible is:
+    {{.available}}
+		`, log.Hash{"requested": o.RequestedDiagnostics, "common": common.List(), "available": AvailableDiagnostics.List()})
+	}
 
 	func() { // don't trust discovery/build of diagnostics; wrap panic nicely in case of developer error
 		defer func() {
@@ -181,7 +192,10 @@ func (o DiagnosticsOptions) RunDiagnostics() (bool, error, int, int) {
 		return failed, kutilerrors.NewAggregate(errors), len(warnings), len(errors)
 	}
 
-	return o.Run(diagnostics)
+	failed, err, numWarnings, numErrors := o.Run(diagnostics)
+	numWarnings += len(warnings)
+	numErrors += len(errors)
+	return failed, err, numWarnings, numErrors
 }
 
 func (o DiagnosticsOptions) Run(diagnostics map[string][]types.Diagnostic) (bool, error, int, int) {

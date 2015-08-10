@@ -19,6 +19,10 @@ var (
 )
 
 func (o DiagnosticsOptions) buildHostDiagnostics() ([]types.Diagnostic, bool /* ok */, error) {
+	requestedDiagnostics := intersection(util.NewStringSet(o.RequestedDiagnostics...), AvailableHostDiagnostics).List()
+	if len(requestedDiagnostics) == 0 { // no diagnostics to run here
+		return nil, true, nil // don't waste time on discovery
+	}
 	isHost := o.IsHost
 	// check for standard host config paths if not given
 	if len(o.MasterConfigLocation) == 0 {
@@ -45,7 +49,7 @@ func (o DiagnosticsOptions) buildHostDiagnostics() ([]types.Diagnostic, bool /* 
 
 	diagnostics := []types.Diagnostic{}
 	systemdUnits := systemddiagnostics.GetSystemdUnits(o.Logger)
-	for _, diagnosticName := range intersection(util.NewStringSet(o.RequestedDiagnostics...), AvailableHostDiagnostics).List() {
+	for _, diagnosticName := range requestedDiagnostics {
 		switch diagnosticName {
 		case "AnalyzeLogs":
 			diagnostics = append(diagnostics, systemddiagnostics.AnalyzeLogs{systemdUnits})

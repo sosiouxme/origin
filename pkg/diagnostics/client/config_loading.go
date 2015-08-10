@@ -97,7 +97,7 @@ location for use by the client and diagnostics.
 		}
 		// look for it in auto-generated locations when not found properly
 		for _, path := range adminPaths {
-			msg := fmt.Sprintf("Looking for a possible client config at %s\n", d.ConfFlagName, path)
+			msg := fmt.Sprintf("Looking for a possible client config at %s\n", path)
 			if d.canOpenConfigFile(path, msg, r) {
 				r.Warnf("discCCautoPath", nil, adminWarningF, config.OpenShiftConfigPathEnvVar, path, config.RecommendedHomeFile)
 				break

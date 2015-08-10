@@ -28,7 +28,7 @@ func BindLoggerOptionFlags(cmdFlags *pflag.FlagSet, loggerOptions *log.LoggerOpt
 
 // default overrideable flag specifications to be bound to options.
 func NewRecommendedDiagnosticFlag() FlagInfo {
-	return FlagInfo{FlagDiagnosticsName, "d", "", `comma-separated list of diagnostic names to run, e.g. "systemd.AnalyzeLogs"`}
+	return FlagInfo{FlagDiagnosticsName, "d", "", `comma-separated list of diagnostic names to run, e.g. "AnalyzeLogs"`}
 }
 
 func BindDiagnosticFlag(cmdFlags *pflag.FlagSet, diagnostics *util.StringList, flagInfo FlagInfo) {
