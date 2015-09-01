@@ -27,7 +27,7 @@ func TestDiagNodeConditions(t *testing.T) {
 	// First check with no nodes defined; should get an error about that.
 	// ok, logs, warnings, errors := nodeDiag.Check()
 	if errors := nodeDiag.Check().Errors(); len(errors) != 1 ||
-		!diagtype.MatchesDiagError(errors[0], "clNoAvailNodes") {
+		!diagtype.MatchesDiagError(errors[0], "DClu0004") {
 		t.Errorf("expected 1 error about not having nodes, not: %#v", errors)
 	}
 
@@ -39,9 +39,9 @@ func TestDiagNodeConditions(t *testing.T) {
 	}
 	result := nodeDiag.Check()
 	if errors := result.Errors(); len(errors) != 1 ||
-		!diagtype.MatchesDiagError(errors[0], "clNoAvailNodes") {
+		!diagtype.MatchesDiagError(errors[0], "DClu0004") {
 		t.Fatalf("expected 1 error about not having nodes, not: %#v", errors)
-	} else if warnings := result.Warnings(); len(warnings) < 1 || !diagtype.MatchesDiagError(warnings[0], "clNodeNotReady") {
+	} else if warnings := result.Warnings(); len(warnings) < 1 || !diagtype.MatchesDiagError(warnings[0], "DClu0002") {
 		t.Fatalf("expected a warning about test-node not being ready, not: %#v", warnings)
 	}
 
