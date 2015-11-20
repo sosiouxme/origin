@@ -1,0 +1,20 @@
+{
+	"apiVersion": "v1",
+	"kind": "Template",
+	"objects": [
+		{
+			"apiVersion": "v1",
+			"kind": "ImageStream",
+			"metadata": { "name": "image" },
+			"spec": { "dockerImageRepository": "${IMAGE_NAME}" }
+		}
+	],
+	"parameters": [
+		{
+			"description": "An image name to get from template",
+			"name": "IMAGE_NAME",
+			"generate": "imagename",
+			"from": "component"
+		}
+	]
+}

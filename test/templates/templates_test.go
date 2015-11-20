@@ -18,6 +18,7 @@ import (
 
 	"github.com/openshift/origin/pkg/api/latest"
 	osclient "github.com/openshift/origin/pkg/client"
+	imgtypes "github.com/openshift/origin/pkg/image/api"
 	templateapi "github.com/openshift/origin/pkg/template/api"
 	templateregistry "github.com/openshift/origin/pkg/template/registry"
 )
@@ -35,7 +36,7 @@ func walkJSONFiles(inDir string, fn func(name, path string, data []byte)) error 
 		if ext != "" {
 			name = name[:len(name)-len(ext)]
 		}
-		if !(ext == ".json" || ext == ".yaml") {
+		if ext != ".json" {
 			return nil
 		}
 		data, err := ioutil.ReadFile(path)
@@ -52,6 +53,10 @@ func TestTemplateTransformationFromConfig(t *testing.T) {
 	osMux := http.NewServeMux()
 	server := httptest.NewServer(osMux)
 	defer server.Close()
+	// Mock server does not set ImageFor
+	imgtypes.ImageFor = func(component string) string {
+		return "prefix-" + component + "-suffix"
+	}
 
 	osClient := osclient.NewOrDie(&kclient.Config{Host: server.URL, Version: latest.Version})
 

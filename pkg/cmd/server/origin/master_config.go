@@ -50,6 +50,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/server/etcd"
 	"github.com/openshift/origin/pkg/cmd/util/plug"
 	"github.com/openshift/origin/pkg/cmd/util/variable"
+	imgtypes "github.com/openshift/origin/pkg/image/api"
 	accesstokenregistry "github.com/openshift/origin/pkg/oauth/registry/oauthaccesstoken"
 	accesstokenetcd "github.com/openshift/origin/pkg/oauth/registry/oauthaccesstoken/etcd"
 	projectauth "github.com/openshift/origin/pkg/project/auth"
@@ -230,6 +231,9 @@ func BuildMasterConfig(options configapi.MasterConfig) (*MasterConfig, error) {
 		HPAControllerServiceAccount:              bootstrappolicy.InfraHPAControllerServiceAccountName,
 		PersistentVolumeControllerServiceAccount: bootstrappolicy.InfraPersistentVolumeControllerServiceAccountName,
 	}
+
+	// save the ImageFor function where template can get it later
+	imgtypes.ImageFor = config.ImageFor
 
 	return config, nil
 }

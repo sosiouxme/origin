@@ -46,6 +46,7 @@ func (s *REST) Create(ctx kapi.Context, obj runtime.Object) (runtime.Object, err
 
 	generators := map[string]generator.Generator{
 		"expression": generator.NewExpressionValueGenerator(rand.New(rand.NewSource(time.Now().UnixNano()))),
+		"imagename":  generator.NewImageNameGenerator(),
 	}
 	processor := template.NewProcessor(generators)
 	if errs := processor.Process(tpl); len(errs) > 0 {

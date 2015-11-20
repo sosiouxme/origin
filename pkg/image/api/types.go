@@ -157,3 +157,5 @@ type DockerImageReference struct {
 	Tag       string
 	ID        string
 }
+
+var ImageFor func(component string) string = nil
