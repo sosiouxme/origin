@@ -81,6 +81,8 @@ func CommandFor(basename string) *cobra.Command {
 		cmd = kubernetes.NewCommand(basename, basename, out)
 	case "origin", "atomic-enterprise":
 		cmd = NewCommandOpenShift(basename)
+	case "pod-diagnostics":
+		cmd = diagnostics.NewCommandPodDiagnostics(basename, basename, out)
 	default:
 		cmd = NewCommandOpenShift("openshift")
 	}
