@@ -14,6 +14,7 @@ RUN ln -s /usr/bin/openshift /usr/bin/oc && \
     ln -s /usr/bin/openshift /usr/bin/osc && \
     ln -s /usr/bin/openshift /usr/bin/osadm && \
     ln -s /usr/bin/openshift /usr/bin/kubectl && \
+    ln -s /usr/bin/openshift /usr/bin/pod-diagnostics && \
     ln -s /usr/bin/openshift /usr/bin/openshift-deploy && \
     ln -s /usr/bin/openshift /usr/bin/openshift-docker-build && \
     ln -s /usr/bin/openshift /usr/bin/openshift-sti-build && \
