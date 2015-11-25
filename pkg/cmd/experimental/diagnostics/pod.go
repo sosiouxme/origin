@@ -14,6 +14,7 @@ import (
 
 	"github.com/openshift/origin/pkg/cmd/experimental/diagnostics/options"
 	"github.com/openshift/origin/pkg/diagnostics/log"
+	poddiag "github.com/openshift/origin/pkg/diagnostics/pod"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
@@ -44,7 +45,8 @@ log the results so that the calling diagnostic can report them.
 // NewCommandPodDiagnostics is the command for running pod diagnostics.
 func NewCommandPodDiagnostics(name string, fullName string, out io.Writer) *cobra.Command {
 	o := &PodDiagnosticsOptions{
-		LogOptions: &log.LoggerOptions{Out: out},
+		RequestedDiagnostics: []string{},
+		LogOptions:           &log.LoggerOptions{Out: out},
 	}
 
 	cmd := &cobra.Command{
@@ -97,14 +99,14 @@ func (o PodDiagnosticsOptions) BuildAndRunDiagnostics() (bool, error, int, int) 
 				stack := debug.Stack()
 				errors = append(errors, fmt.Errorf("While building the diagnostics, a panic was encountered.\nThis is a bug in diagnostics. Error and stack trace follow: \n%v\n%s", r, stack))
 			}
-		}()
+		}() // deferred panic handler
 		podDiags, ok, err := o.buildPodDiagnostics()
 		failed = failed || !ok
 		if ok {
 			diagnostics = append(diagnostics, podDiags...)
 		}
 		if err != nil {
-			errors = append(errors, err)
+			errors = append(errors, err...)
 		}
 
 	}()
@@ -155,27 +157,27 @@ func runDiagnostics(logger *log.Logger, diagnostics []types.Diagnostic, warnCoun
 var (
 	// availablePodDiagnostics contains the names of host diagnostics that can be executed
 	// during a single run of diagnostics. Add more diagnostics to the list as they are defined.
-	availablePodDiagnostics = sets.NewString( /* list of diagnostics names */ )
+	availablePodDiagnostics = sets.NewString(poddiag.PodCheckDnsName)
 )
 
 // buildPodDiagnostics builds host Diagnostic objects based on the host environment.
 // Returns the Diagnostics built, "ok" bool for whether to proceed or abort, and an error if any was encountered during the building of diagnostics.) {
-func (o PodDiagnosticsOptions) buildPodDiagnostics() ([]types.Diagnostic, bool, error) {
-	requestedDiagnostics := intersection(sets.NewString(o.RequestedDiagnostics...), availablePodDiagnostics).List()
-	if len(requestedDiagnostics) == 0 { // no diagnostics to run here
-		return nil, true, nil // don't waste time on discovery
+func (o PodDiagnosticsOptions) buildPodDiagnostics() ([]types.Diagnostic, bool, []error) {
+	diagnostics := []types.Diagnostic{}
+	ok, _, errors, requestedDiagnostics := determineRequestedDiagnostics(availablePodDiagnostics.List(), o.RequestedDiagnostics, o.Logger)
+	if !ok {
+		return diagnostics, false, errors // don't waste time on discovery
 	}
 	// TODO: check we're actually in a container
 
-	diagnostics := []types.Diagnostic{}
 	for _, diagnosticName := range requestedDiagnostics {
 		switch diagnosticName {
 
-		//case hostdiags.NodeConfigCheckName:
-		//	diagnostics = append(diagnostics, hostdiags.NodeConfigCheck{NodeConfigFile: o.NodeConfigLocation})
+		case poddiag.PodCheckDnsName:
+			diagnostics = append(diagnostics, poddiag.PodCheckDns{})
 
 		default:
-			return diagnostics, false, fmt.Errorf("unknown diagnostic: %v", diagnosticName)
+			return diagnostics, false, []error{fmt.Errorf("unknown diagnostic: %v", diagnosticName)}
 		}
 	}
 
