@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	kapi "k8s.io/kubernetes/pkg/api"
@@ -73,7 +74,7 @@ func (d *DiagnosticPod) runDiagnosticPod(service *kapi.Service, r types.Diagnost
 	r.Debug("DCli2004", fmt.Sprintf("Created test Pod: %[1]v", pod.ObjectMeta.Name))
 
 	// wait for pod to be scheduled and started, then watch logs and wait until it exits
-	podLogs, bytelim := "", int64(1024000)
+	bytelim := int64(1024000)
 	podLogsOpts := &kapi.PodLogOptions{
 		TypeMeta:   pod.TypeMeta,
 		Container:  "origin",
@@ -85,15 +86,27 @@ func (d *DiagnosticPod) runDiagnosticPod(service *kapi.Service, r types.Diagnost
 		if err != nil {
 			if times <= 10 { // try, try again
 				//time.Sleep(times * time.Millisecond)
+				r.Debug("DCli2007", fmt.Sprintf("Couldn't get test pod: %[1]v", err))
 				time.Sleep(time.Duration(times*100) * time.Millisecond)
 				continue
 			}
-			r.Error("DCli2005", err, fmt.Sprintf("Test Pod did not get to a state where logs could be retrieved. Error: (%T) %[1]v", err))
+			r.Error("DCli2005", err, fmt.Sprintf("Diagnostic Pod did not get to a state where logs could be retrieved. Error: (%T) %[1]v", err))
 			return
 		}
-		// TODO got the request object back; use it
-		_, _ = podLogs, req
+
+		// got the request object back; use it
+		readCloser, err := req.Stream()
+		if err != nil {
+			r.Error("DCli2006", err, fmt.Sprintf("Error preparing diagnostic pod logs for streaming: (%T) %[1]v", err))
+			return
+		}
+		defer readCloser.Close()
+		podLogs, err := ioutil.ReadAll(readCloser)
+		if err != nil {
+			r.Error("DCli2009", err, fmt.Sprintf("Error reading diagnostic pod logs: (%T) %[1]v", err))
+		} else {
+			r.Debug("DCli2008", "Got logs from pod\n"+string(podLogs))
+		}
 		break
 	}
-
 }
