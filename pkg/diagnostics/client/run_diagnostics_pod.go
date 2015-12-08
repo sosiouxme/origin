@@ -37,6 +37,7 @@ func (d *DiagnosticPod) CanRun() (bool, error) {
 
 func (d *DiagnosticPod) Check() types.DiagnosticResult {
 	r := types.NewDiagnosticResult("DiagnosticPod")
+	d.runDiagnosticPod(nil, r)
 	return r
 }
 
