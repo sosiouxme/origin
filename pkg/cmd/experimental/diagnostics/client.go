@@ -13,7 +13,7 @@ import (
 var (
 	// availableClientDiagnostics contains the names of client diagnostics that can be executed
 	// during a single run of diagnostics. Add more diagnostics to the list as they are defined.
-	availableClientDiagnostics = sets.NewString(clientdiags.ConfigContextsName)
+	availableClientDiagnostics = sets.NewString(clientdiags.ConfigContextsName, clientdiags.DiagnosticPodName)
 )
 
 // buildClientDiagnostics builds client Diagnostic objects based on the rawConfig passed in.
@@ -22,7 +22,7 @@ func (o DiagnosticsOptions) buildClientDiagnostics(rawConfig *clientcmdapi.Confi
 	available := availableClientDiagnostics
 
 	// osClient, kubeClient, clientErr := o.Factory.Clients() // use with a diagnostic that needs OpenShift/Kube client
-	_, _, clientErr := o.Factory.Clients()
+	_, kubeClient, clientErr := o.Factory.Clients()
 	if clientErr != nil {
 		o.Logger.Notice("CED0001", "Failed creating client from config; client diagnostics will be limited to config testing")
 		available = sets.NewString(clientdiags.ConfigContextsName)
@@ -36,7 +36,8 @@ func (o DiagnosticsOptions) buildClientDiagnostics(rawConfig *clientcmdapi.Confi
 			for contextName := range rawConfig.Contexts {
 				diagnostics = append(diagnostics, clientdiags.ConfigContext{RawConfig: rawConfig, ContextName: contextName})
 			}
-
+		case clientdiags.DiagnosticPodName:
+			diagnostics = append(diagnostics, &clientdiags.DiagnosticPod{KubeClient: *kubeClient, Namespace: rawConfig.Contexts[rawConfig.CurrentContext].Namespace, Factory: o.Factory})
 		default:
 			return nil, false, fmt.Errorf("unknown diagnostic: %v", diagnosticName)
 		}
