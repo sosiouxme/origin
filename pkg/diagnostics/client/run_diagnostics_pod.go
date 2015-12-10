@@ -1,8 +1,8 @@
 package client
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"regexp"
 	"strconv"
 	"time"
@@ -106,22 +106,22 @@ func (d *DiagnosticPod) runDiagnosticPod(service *kapi.Service, r types.Diagnost
 		return
 	}
 	defer readCloser.Close()
-	line, podLogs, warnings, errors := "", "", 0, 0
+	lineScanner := bufio.NewScanner(readCloser)
+	podLogs, warnings, errors := "", 0, 0
 	errorRegex := regexp.MustCompile(`^\[Note\]\s+Errors\s+seen:\s+(\d+)`)
 	warnRegex := regexp.MustCompile(`^\[Note\]\s+Warnings\s+seen:\s+(\d+)`)
-	_, err = fmt.Fscanln(readCloser, &line)
-	for err == nil {
-		fmt.Print("got here 1\n")
-		podLogs += line
+	for lineScanner.Scan() {
+		line := lineScanner.Text()
+		podLogs += line + "\n"
 		if matches := errorRegex.FindStringSubmatch(line); matches != nil {
 			errors, _ = strconv.Atoi(matches[1])
 		} else if matches := warnRegex.FindStringSubmatch(line); matches != nil {
 			warnings, _ = strconv.Atoi(matches[1])
 		}
-		_, err = fmt.Fscanln(readCloser, &line)
 	}
-	fmt.Print("got here 3")
-	if err == io.EOF || err == nil { // reached the end normally.
+	if err := lineScanner.Err(); err != nil { // Scan terminated abnormally
+		r.Error("DCli2009", err, fmt.Sprintf("Unexpected error reading diagnostic pod logs: (%T) %[1]v\nLogs are:\n%[2]s", err, podLogs))
+	} else {
 		if errors > 0 {
 			r.Error("DCli2012", nil, "See the errors below in the output from the diagnostic pod:\n"+podLogs)
 		} else if warnings > 0 {
@@ -129,7 +129,5 @@ func (d *DiagnosticPod) runDiagnosticPod(service *kapi.Service, r types.Diagnost
 		} else {
 			r.Info("DCli2008", "Output from the diagnostic pod:\n"+podLogs)
 		}
-	} else {
-		r.Error("DCli2009", err, fmt.Sprintf("Unexpected error reading diagnostic pod logs: (%T) %[1]v\nLogs are:\n%[2]s", err, podLogs))
 	}
 }
