@@ -2,15 +2,26 @@ package pod
 
 import (
 	"fmt"
-	"io/ioutil"
-	"regexp"
+	"math/rand"
 	"time"
 
 	"github.com/miekg/dns"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
-const PodCheckDnsName = "PodCheckDns"
+const (
+	PodCheckDnsName = "PodCheckDns"
+	txtDP2016       = `
+Query to nameserver %s for random subdomain of %s
+returned an answer, indicating that this domain provides wildcard DNS.
+
+This domain should not be in the search.
+
+It can cause queries for external domains (e.g. github.com)
+to resolve to the wildcard address. Full response:
+
+%v`
+)
 
 // PodCheckDns is a Diagnostic to check that DNS within a pod works as expected
 type PodCheckDns struct {
@@ -34,58 +45,110 @@ func (d PodCheckDns) CanRun() (bool, error) {
 func (d PodCheckDns) Check() types.DiagnosticResult {
 	r := types.NewDiagnosticResult(PodCheckDnsName)
 
-	conf, err := ioutil.ReadFile("/etc/resolv.conf")
+	resolvConf, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
-		r.Error("DP2001", err, fmt.Sprintf("could not load resolver file /etc/resolv.conf: %v", err))
+		r.Error("DP2001", err, fmt.Sprintf("could not load/parse resolver file /etc/resolv.conf: %v", err))
 		return r
 	}
-	nsFinder := regexp.MustCompile("(?im:^\\s*nameserver\\s+(\\S+))")
-	servers := nsFinder.FindAllStringSubmatch(string(conf), 3)
-	if servers == nil {
+	if resolvConf.Servers == nil || len(resolvConf.Servers) == 0 {
 		r.Error("DP2002", nil, "could not find any nameservers defined in /etc/resolv.conf")
 		return r
 	}
+	if resolvConf.Search == nil || len(resolvConf.Search) == 0 {
+		r.Error("DP2011", nil, "could not find any search domains defined in /etc/resolv.conf")
+		resolvConf.Search = nil
+	}
+	r.Debug("DP2012", fmt.Sprintf("Pod /etc/resolv.conf contains:\nnameservers: %v\nsearch domains: %v", resolvConf.Servers, resolvConf.Search))
+	connectAndResolve(resolvConf, r)
+	resolveSearch(resolvConf, r)
+	return r
+}
 
-	for serverIndex, server := range servers {
+func connectAndResolve(resolvConf *dns.ClientConfig, r types.DiagnosticResult) {
+	for serverIndex, server := range resolvConf.Servers {
 		// put together a DNS query to configured nameservers for kubernetes.default
 		msg := new(dns.Msg)
 		msg.SetQuestion("kubernetes.default.svc.cluster.local.", dns.TypeA)
 		msg.RecursionDesired = false
 		rchan := make(chan dnsResponse, 1)
 		go func() {
-			in, err := dns.Exchange(msg, server[1]+":53")
+			in, err := dns.Exchange(msg, server+":53")
 			rchan <- dnsResponse{in, err}
 		}()
 		select {
 		case <-time.After(time.Second * 2):
 			if serverIndex == 0 { // in a pod, master (SkyDNS) IP is injected as first nameserver
-				r.Warn("DP2009", nil, fmt.Sprintf("A request to the master (SkyDNS) nameserver %s timed out.\nThis could be temporary but could also indicate network or DNS problems.\nThis nameserver is critical for resolving cluster DNS names.", server[1]))
+				r.Warn("DP2009", nil, fmt.Sprintf("A request to the master (SkyDNS) nameserver %s timed out.\nThis could be temporary but could also indicate network or DNS problems.\nThis nameserver is critical for resolving cluster DNS names.", server))
 			} else {
-				r.Warn("DP2010", nil, fmt.Sprintf("A request to the nameserver %s timed out.\nThis could be temporary but could also indicate network or DNS problems.", server[1]))
+				r.Warn("DP2010", nil, fmt.Sprintf("A request to the nameserver %s timed out.\nThis could be temporary but could also indicate network or DNS problems.", server))
 			}
 		case result := <-rchan:
 			in, err := result.in, result.err
 			if serverIndex == 0 { // in a pod, master (SkyDNS) IP is injected as first nameserver
 				if err != nil {
-					r.Error("DP2003", err, fmt.Sprintf("The first /etc/resolv.conf nameserver %s\ncould not resolve kubernetes.default.svc.cluster.local.\nError: %v\nThis nameserver points to the master's SkyDNS which is critical for\nresolving cluster names, e.g. for Services.", server[1], err))
+					r.Error("DP2003", err, fmt.Sprintf("The first /etc/resolv.conf nameserver %s\ncould not resolve kubernetes.default.svc.cluster.local.\nError: %v\nThis nameserver points to the master's SkyDNS which is critical for\nresolving cluster names, e.g. for Services.", server, err))
 				} else if len(in.Answer) == 0 {
-					r.Error("DP2006", err, fmt.Sprintf("The first /etc/resolv.conf nameserver %s\ncould not resolve kubernetes.default.svc.cluster.local.\nReturn code: %v\nThis nameserver points to the master's SkyDNS which is critical for\nresolving cluster names, e.g. for Services.", server[1], dns.RcodeToString[in.MsgHdr.Rcode]))
+					r.Error("DP2006", err, fmt.Sprintf("The first /etc/resolv.conf nameserver %s\ncould not resolve kubernetes.default.svc.cluster.local.\nReturn code: %v\nThis nameserver points to the master's SkyDNS which is critical for\nresolving cluster names, e.g. for Services.", server, dns.RcodeToString[in.MsgHdr.Rcode]))
 				} else {
-					r.Debug("DP2007", fmt.Sprintf("The first /etc/resolv.conf nameserver %s\nresolved kubernetes.default.svc.cluster.local. to:\n  %s", server[1], in.Answer[0]))
+					r.Debug("DP2007", fmt.Sprintf("The first /etc/resolv.conf nameserver %s\nresolved kubernetes.default.svc.cluster.local. to:\n  %s", server, in.Answer[0]))
 				}
 			} else if err != nil {
-				r.Warn("DP2004", err, fmt.Sprintf("Error querying nameserver %s:\n  %v\nThis may indicate a problem with non-cluster DNS.", server[1], err))
+				r.Warn("DP2004", err, fmt.Sprintf("Error querying nameserver %s:\n  %v\nThis may indicate a problem with non-cluster DNS.", server, err))
 			} else {
 				rcode := in.MsgHdr.Rcode
 				switch rcode {
 				case dns.RcodeSuccess, dns.RcodeNameError: // aka NXDOMAIN
-					r.Debug("DP2005", fmt.Sprintf("Successful query to nameserver %s", server[1]))
+					r.Debug("DP2005", fmt.Sprintf("Successful query to nameserver %s", server))
 				default:
-					r.Warn("DP2008", nil, fmt.Sprintf("Received unexpected return code '%s' from nameserver %s:\nThis may indicate a problem with non-cluster DNS.", dns.RcodeToString[rcode], server[1]))
+					r.Warn("DP2008", nil, fmt.Sprintf("Received unexpected return code '%s' from nameserver %s:\nThis may indicate a problem with non-cluster DNS.", dns.RcodeToString[rcode], server))
 				}
 			}
 		}
 	}
+}
 
-	return r
+const letterBytes = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+func resolveSearch(resolvConf *dns.ClientConfig, r types.DiagnosticResult) {
+	foundDomain := false
+	randomString := func() string {
+		b := make([]byte, 20)
+		for i := range b {
+			b[i] = letterBytes[rand.Intn(len(letterBytes))]
+		}
+		return string(b)
+	}()
+	for _, domain := range resolvConf.Search {
+		if domain == "svc.cluster.local" {
+			foundDomain = true // this will make kubernetes.default work
+		}
+		// put together a DNS query to configured nameservers for each search domain
+		msg := new(dns.Msg)
+		msg.SetQuestion("wildcard."+randomString+"."+domain+".", dns.TypeA)
+		msg.RecursionDesired = true // otherwise we just get the authority section for the TLD
+		for _, server := range resolvConf.Servers {
+			rchan := make(chan dnsResponse, 1) // for concurrency with timeout
+			go func() {
+				in, err := dns.Exchange(msg, server+":53")
+				rchan <- dnsResponse{in, err}
+			}()
+			select {
+			case <-time.After(time.Second * 2): // timeout per query
+				r.Warn("DP2014", nil, fmt.Sprintf("A request to the nameserver %s timed out.\nThis could be temporary but could also indicate network or DNS problems.", server))
+			case result := <-rchan:
+				if in, err := result.in, result.err; err != nil {
+					r.Warn("DP2015", err, fmt.Sprintf("Error querying nameserver %s:\n  %v\nThis may indicate a problem with DNS.", server, err))
+				} else {
+					if in.Answer == nil || len(in.Answer) == 0 { // no news is good news
+						r.Debug("DP2017", fmt.Sprintf("Nameserver %s responded to wildcard with no answer, which is expected.\n%v", server, in))
+					} else { // the random domain is not supposed to resolve
+						r.Error("DP2016", nil, fmt.Sprintf(txtDP2016, server, domain, in))
+					}
+				}
+			}
+		}
+	}
+	if !foundDomain {
+		r.Error("DP2019", nil, "Did not find svc.cluster.local among the configured search domains in /etc/resolv.conf.\nThis is likely to cause problems with certain components that expect to use partial cluster addresses.")
+	}
 }
