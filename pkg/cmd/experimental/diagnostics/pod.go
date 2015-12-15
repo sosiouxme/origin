@@ -157,7 +157,7 @@ func runDiagnostics(logger *log.Logger, diagnostics []types.Diagnostic, warnCoun
 var (
 	// availablePodDiagnostics contains the names of host diagnostics that can be executed
 	// during a single run of diagnostics. Add more diagnostics to the list as they are defined.
-	availablePodDiagnostics = sets.NewString(poddiag.PodCheckDnsName)
+	availablePodDiagnostics = sets.NewString(poddiag.PodCheckDnsName, poddiag.PodCheckAuthName)
 )
 
 // buildPodDiagnostics builds host Diagnostic objects based on the host environment.
@@ -175,6 +175,9 @@ func (o PodDiagnosticsOptions) buildPodDiagnostics() ([]types.Diagnostic, bool, 
 
 		case poddiag.PodCheckDnsName:
 			diagnostics = append(diagnostics, poddiag.PodCheckDns{})
+
+		case poddiag.PodCheckAuthName:
+			diagnostics = append(diagnostics, poddiag.PodCheckAuth{})
 
 		default:
 			return diagnostics, false, []error{fmt.Errorf("unknown diagnostic: %v", diagnosticName)}
