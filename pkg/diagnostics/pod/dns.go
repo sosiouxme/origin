@@ -3,7 +3,6 @@ package pod
 import (
 	"fmt"
 	"math/rand"
-	"time"
 
 	"github.com/miekg/dns"
 	"github.com/openshift/origin/pkg/diagnostics/types"
@@ -27,12 +26,6 @@ to resolve to the wildcard address. Full response:
 type PodCheckDns struct {
 }
 
-// dnsRespon is used for a channel payload with timeout
-type dnsResponse struct {
-	in  *dns.Msg
-	err error
-}
-
 // Name is part of the Diagnostic interface and just returns name.
 func (d PodCheckDns) Name() string {
 	return PodCheckDnsName
@@ -52,22 +45,10 @@ func (d PodCheckDns) CanRun() (bool, error) {
 func (d PodCheckDns) Check() types.DiagnosticResult {
 	r := types.NewDiagnosticResult(PodCheckDnsName)
 
-	resolvConf, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		r.Error("DP2001", err, fmt.Sprintf("could not load/parse resolver file /etc/resolv.conf: %v", err))
-		return r
+	if resolvConf, err := getResolvConf(r); err == nil {
+		connectAndResolve(resolvConf, r)
+		resolveSearch(resolvConf, r)
 	}
-	if resolvConf.Servers == nil || len(resolvConf.Servers) == 0 {
-		r.Error("DP2002", nil, "could not find any nameservers defined in /etc/resolv.conf")
-		return r
-	}
-	if resolvConf.Search == nil || len(resolvConf.Search) == 0 {
-		r.Error("DP2011", nil, "could not find any search domains defined in /etc/resolv.conf")
-		resolvConf.Search = nil
-	}
-	r.Debug("DP2012", fmt.Sprintf("Pod /etc/resolv.conf contains:\nnameservers: %v\nsearch domains: %v", resolvConf.Servers, resolvConf.Search))
-	connectAndResolve(resolvConf, r)
-	resolveSearch(resolvConf, r)
 	return r
 }
 
@@ -77,19 +58,13 @@ func connectAndResolve(resolvConf *dns.ClientConfig, r types.DiagnosticResult) {
 		msg := new(dns.Msg)
 		msg.SetQuestion("kubernetes.default.svc.cluster.local.", dns.TypeA)
 		msg.RecursionDesired = false
-		rchan := make(chan dnsResponse, 1)
-		go func() {
-			in, err := dns.Exchange(msg, server+":53")
-			rchan <- dnsResponse{in, err}
-		}()
-		select {
-		case <-time.After(time.Second * 2):
+		if result, completed := dnsQueryWithTimeout(msg, server, 2); !completed {
 			if serverIndex == 0 { // in a pod, master (SkyDNS) IP is injected as first nameserver
 				r.Warn("DP2009", nil, fmt.Sprintf("A request to the master (SkyDNS) nameserver %s timed out.\nThis could be temporary but could also indicate network or DNS problems.\nThis nameserver is critical for resolving cluster DNS names.", server))
 			} else {
 				r.Warn("DP2010", nil, fmt.Sprintf("A request to the nameserver %s timed out.\nThis could be temporary but could also indicate network or DNS problems.", server))
 			}
-		case result := <-rchan:
+		} else {
 			in, err := result.in, result.err
 			if serverIndex == 0 { // in a pod, master (SkyDNS) IP is injected as first nameserver
 				if err != nil {
@@ -134,15 +109,9 @@ func resolveSearch(resolvConf *dns.ClientConfig, r types.DiagnosticResult) {
 		msg.SetQuestion("wildcard."+randomString+"."+domain+".", dns.TypeA)
 		msg.RecursionDesired = true // otherwise we just get the authority section for the TLD
 		for _, server := range resolvConf.Servers {
-			rchan := make(chan dnsResponse, 1) // for concurrency with timeout
-			go func() {
-				in, err := dns.Exchange(msg, server+":53")
-				rchan <- dnsResponse{in, err}
-			}()
-			select {
-			case <-time.After(time.Second * 2): // timeout per query
+			if result, completed := dnsQueryWithTimeout(msg, server, 2); !completed {
 				r.Warn("DP2014", nil, fmt.Sprintf("A request to the nameserver %s timed out.\nThis could be temporary but could also indicate network or DNS problems.", server))
-			case result := <-rchan:
+			} else {
 				if in, err := result.in, result.err; err != nil {
 					r.Warn("DP2015", err, fmt.Sprintf("Error querying nameserver %s:\n  %v\nThis may indicate a problem with DNS.", server, err))
 				} else {
