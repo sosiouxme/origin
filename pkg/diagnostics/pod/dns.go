@@ -27,21 +27,28 @@ to resolve to the wildcard address. Full response:
 type PodCheckDns struct {
 }
 
+// dnsRespon is used for a channel payload with timeout
 type dnsResponse struct {
 	in  *dns.Msg
 	err error
 }
 
+// Name is part of the Diagnostic interface and just returns name.
 func (d PodCheckDns) Name() string {
 	return PodCheckDnsName
 }
+
+// Name is part of the Diagnostic interface and just returns the diagnostic description.
 func (d PodCheckDns) Description() string {
 	return "Check that DNS within a pod works as expected"
 }
+
+// CanRun is part of the Diagnostic interface; it determines if the conditions are right to run this diagnostic.
 func (d PodCheckDns) CanRun() (bool, error) {
 	return true, nil
 }
 
+// Check is part of the Diagnostic interface; it runs the actual diagnostic logic
 func (d PodCheckDns) Check() types.DiagnosticResult {
 	r := types.NewDiagnosticResult(PodCheckDnsName)
 

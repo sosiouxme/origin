@@ -31,8 +31,9 @@ type PodDiagnosticsOptions struct {
 
 const (
 	// Standard locations for the secrets mounted in pods
-	StandardMasterCaPath string = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	StandardTokenPath    string = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	StandardMasterCaPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	StandardTokenPath    = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	StandardMasterUrl    = "https://kubernetes.default.svc.cluster.local"
 )
 
 const longPodDiagDescription = `
@@ -157,7 +158,7 @@ func runDiagnostics(logger *log.Logger, diagnostics []types.Diagnostic, warnCoun
 var (
 	// availablePodDiagnostics contains the names of host diagnostics that can be executed
 	// during a single run of diagnostics. Add more diagnostics to the list as they are defined.
-	availablePodDiagnostics = sets.NewString(poddiag.PodCheckDnsName)
+	availablePodDiagnostics = sets.NewString(poddiag.PodCheckDnsName, poddiag.PodCheckAuthName)
 )
 
 // buildPodDiagnostics builds host Diagnostic objects based on the host environment.
@@ -175,6 +176,13 @@ func (o PodDiagnosticsOptions) buildPodDiagnostics() ([]types.Diagnostic, bool, 
 
 		case poddiag.PodCheckDnsName:
 			diagnostics = append(diagnostics, poddiag.PodCheckDns{})
+
+		case poddiag.PodCheckAuthName:
+			diagnostics = append(diagnostics, poddiag.PodCheckAuth{
+				MasterCaPath: StandardMasterCaPath,
+				TokenPath:    StandardTokenPath,
+				MasterUrl:    StandardMasterUrl,
+			})
 
 		default:
 			return diagnostics, false, []error{fmt.Errorf("unknown diagnostic: %v", diagnosticName)}
