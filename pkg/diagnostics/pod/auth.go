@@ -2,6 +2,7 @@ package pod
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/openshift/origin/pkg/cmd/util/clientcmd"
 	"github.com/openshift/origin/pkg/diagnostics/types"
@@ -41,13 +42,21 @@ func (d PodCheckAuth) Check() types.DiagnosticResult {
 		r.Error("DP1002", err, fmt.Sprintf("could not create API clients from the service account client config: %v", err))
 		return r
 	}
-	// TODO: set a timeout
-	name, err := oclient.Users().Get("~")
-	if err != nil {
-		r.Error("DP1003", err, fmt.Sprintf("Could not authenticate to the master with the service account credentials: %v", err))
-	} else {
-		r.Debug("DP1004", fmt.Sprintf("Successfully authenticated to master as %s", name))
-	}
+	rchan := make(chan error, 1) // for concurrency with timeout
+	go func() {
+		_, err := oclient.Users().Get("~")
+		rchan <- err
+	}()
 
+	select {
+	case <-time.After(time.Second * 4): // timeout per query
+		r.Warn("DP1005", nil, "A request to the master timed out.\nThis could be temporary but could also indicate network or DNS problems.")
+	case err := <-rchan:
+		if err != nil {
+			r.Error("DP1003", err, fmt.Sprintf("Could not authenticate to the master with the service account credentials: %v", err))
+		} else {
+			r.Debug("DP1004", "Successfully authenticated to master")
+		}
+	}
 	return r
 }
