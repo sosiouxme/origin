@@ -1,9 +1,15 @@
 package pod
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
 	"time"
+
+	"github.com/miekg/dns"
 
 	"github.com/openshift/origin/pkg/cmd/flagtypes"
 	"github.com/openshift/origin/pkg/cmd/util/clientcmd"
@@ -46,18 +52,26 @@ func (d PodCheckAuth) Check() types.DiagnosticResult {
 		r.Error("DP1001", err, fmt.Sprintf("could not read the service account token: %v", err))
 		return r
 	}
+	d.authenticateToMaster(string(token), r)
+	d.authenticateToRegistry(string(token), r)
+	return r
+}
+
+// authenticateToMaster tests whether we can use the serviceaccount token
+// to reach the master and authenticate
+func (d PodCheckAuth) authenticateToMaster(token string, r types.DiagnosticResult) {
 	clientConfig := &clientcmd.Config{
 		MasterAddr:     flagtypes.Addr{Value: d.MasterUrl}.Default(),
 		KubernetesAddr: flagtypes.Addr{Value: d.MasterUrl}.Default(),
 		CommonConfig: kclient.Config{
 			TLSClientConfig: kclient.TLSClientConfig{CAFile: d.MasterCaPath},
-			BearerToken:     string(token),
+			BearerToken:     token,
 		},
 	}
 	oclient, _, err := clientConfig.Clients()
 	if err != nil {
 		r.Error("DP1002", err, fmt.Sprintf("could not create API clients from the service account client config: %v", err))
-		return r
+		return
 	}
 	rchan := make(chan error, 1) // for concurrency with timeout
 	go func() {
@@ -75,5 +89,80 @@ func (d PodCheckAuth) Check() types.DiagnosticResult {
 			r.Debug("DP1004", "Successfully authenticated to master")
 		}
 	}
-	return r
+	return
+}
+
+const registryHostname = "docker-registry.default.svc.cluster.local" // standard registry service DNS
+const registryPort = "5000"
+
+func (d PodCheckAuth) authenticateToRegistry(token string, r types.DiagnosticResult) {
+	resolvConf, err := getResolvConf(r)
+	if err != nil {
+		return
+	}
+	msg := new(dns.Msg)
+	msg.SetQuestion(registryHostname+".", dns.TypeA)
+	msg.RecursionDesired = false
+	if result, completed := dnsQueryWithTimeout(msg, resolvConf.Servers[0], 2); !completed {
+		r.Error("DP1006", nil, fmt.Sprintf("DNS resolution for registry address %s timed out; this could indicate problems with DNS resolution or networking", registryHostname))
+		return
+	} else if len(result.in.Answer) == 0 {
+		r.Warn("DP1007", nil, fmt.Sprintf("DNS resolution for registry address %s returned no results; either the integrated registry is not deployed, or container DNS configuration is incorrect.", registryHostname))
+		return
+	}
+
+	// first try the secure connection in case they followed directions to secure the registry
+	// (https://docs.openshift.org/latest/install_config/install/docker_registry.html#securing-the-registry)
+	cacert, err := ioutil.ReadFile(d.MasterCaPath) // TODO: we assume same CA as master - better choice?
+	if err != nil {
+		r.Error("DP1008", err, fmt.Sprintf("Failed to read CA cert file %s:\n%v", d.MasterCaPath, err))
+		return
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(cacert) {
+		r.Error("DP1009", err, fmt.Sprintf("Could not use cert from CA cert file %s", d.MasterCaPath, err))
+		return
+	}
+	noSecClient := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return fmt.Errorf("No redirect expected")
+		},
+		Timeout: time.Second * 2,
+	}
+	secClient := noSecClient
+	secClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool}}
+	if secError := processRegistryRequest(&secClient, fmt.Sprintf("https://%s:%s/v2/", registryHostname, registryPort), token, r); secError == nil {
+		return // made the request successfully enough to diagnose
+	} else if strings.Contains(secError.Error(), "tls: oversized record received") {
+		r.Debug("DP1015", "docker-registry not secured; falling back to cleartext connection")
+		if nosecError := processRegistryRequest(&noSecClient, fmt.Sprintf("http://%s:%s/v2/", registryHostname, registryPort), token, r); nosecError != nil {
+			r.Error("DP1013", nosecError, fmt.Sprintf("Unexpected error authenticating to the integrated registry:\n(%T) %[1]v", nosecError))
+		}
+	} else {
+		r.Error("DP1013", secError, fmt.Sprintf("Unexpected error authenticating to the integrated registry:\n(%T) %[1]v", secError))
+	}
+}
+
+func processRegistryRequest(client *http.Client, url string, token string, r types.DiagnosticResult) error {
+	req, _ := http.NewRequest("HEAD", url, nil)
+	req.SetBasicAuth("anyname", token)
+	if response, err := client.Do(req); err == nil {
+		switch response.StatusCode {
+		case 401, 403:
+			r.Error("DP1010", nil, "Service account token was not accepted by the integrated registry for authentication.\nThis indicates possible network problems or misconfiguration of the registry.")
+		case 200:
+			r.Info("DP1011", "Service account token was authenticated by the integrated registry.")
+		default:
+			r.Error("DP1012", nil, fmt.Sprintf("Unexpected status code from integrated registry authentication:\n%s", response.Status))
+		}
+		return nil
+	} else if strings.Contains(err.Error(), "net/http: request canceled") {
+		// (*url.Error) Head https://docker-registry.default.svc.cluster.local:5000/v2/: net/http: request canceled while waiting for connection
+		r.Error("DP1014", err, "Request to integrated registry timed out; this typically indicates network or SDN problems.")
+		return err
+	} else {
+		return err
+	}
+
+	// fall back to non-secured access
 }
