@@ -16,10 +16,10 @@ os::log::install_errexit
 # Without things feeding into systemd, AnalyzeLogs and UnitStatus are irrelevant.
 # The rest should be included in some fashion.
 
-os::cmd::expect_success 'openshift ex diagnostics ClusterRoleBindings,ClusterRoles,ConfigContexts '
+os::cmd::expect_success 'openshift ex diagnostics ClusterRoleBindings ClusterRoles ConfigContexts '
 # DiagnosticPod can't run without Docker, would just time out. Exercise flags instead.
 os::cmd::expect_success "openshift ex diagnostics DiagnosticPod --prevent-modification --images=foo"
-os::cmd::expect_success "openshift ex diagnostics MasterConfigCheck,NodeConfigCheck --master-config=${MASTER_CONFIG_DIR}/master-config.yaml --node-config=${NODE_CONFIG_DIR}/node-config.yaml"
+os::cmd::expect_success "openshift ex diagnostics MasterConfigCheck NodeConfigCheck --master-config=${MASTER_CONFIG_DIR}/master-config.yaml --node-config=${NODE_CONFIG_DIR}/node-config.yaml"
 os::cmd::expect_success_and_text 'openshift ex diagnostics ClusterRegistry' "DClu1002 from diagnostic ClusterRegistry"
 # ClusterRouter fails differently depending on whether other tests have run first, so don't test for specific error
 os::cmd::expect_failure 'openshift ex diagnostics ClusterRouter' # "DClu2001 from diagnostic ClusterRouter"
