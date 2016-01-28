@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/openshift/origin/pkg/cmd/server/api"
 	"k8s.io/kubernetes/pkg/util"
 )
 
@@ -188,7 +189,15 @@ window.OPENSHIFT_CONFIG = {
   	logout_uri: "{{ .LogoutURI | js}}"
   },
   loggingURL: "{{ .LoggingURL | js}}",
-  metricsURL: "{{ .MetricsURL | js}}"
+  metricsURL: "{{ .MetricsURL | js}}",
+  limitRequestOverrides: {
+	{{ with .LimitRequestOverrides }}
+	enabled: {{ .Enabled }},
+	limitCPUToMemoryRatio: {{ .LimitCPUToMemoryRatio }},
+	cpuRequestToLimitRatio: {{ .CPURequestToLimitRatio }},
+	memoryRequestToLimitRatio: {{ .MemoryRequestToLimitRatio }}
+    {{ end }}
+  }
 };
 `))
 
@@ -222,6 +231,13 @@ type WebConsoleConfig struct {
 	LoggingURL string
 	// MetricsURL is the endpoint for metrics (optional)
 	MetricsURL string
+	// LimitRequestOverrides contains the ratios for overriding request/limit on containers.
+	// Applied in order:
+	//   Enabled (no overrides apply if not enabled)
+	//   LimitCPUToMemoryRatio
+	//   CPURequestToLimitRatio
+	//   MemoryRequestToLimitRatio
+	LimitRequestOverrides api.PodLimitRequestConfig
 }
 
 func GeneratedConfigHandler(config WebConsoleConfig, version WebConsoleVersion) (http.Handler, error) {

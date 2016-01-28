@@ -441,6 +441,9 @@ type AssetConfig struct {
 	// MetricsPublicURL is the public endpoint for metrics (optional)
 	MetricsPublicURL string
 
+	// LimitRequestOverrides contains the ratios for overriding request/limit on containers.
+	LimitRequestOverrides PodLimitRequestConfig
+
 	// ExtensionScripts are file paths on the asset server files to load as scripts when the Web
 	// Console loads
 	ExtensionScripts []string
@@ -997,4 +1000,20 @@ type AdmissionConfig struct {
 	// PluginOrderOverride is a list of admission control plugin names that will be installed
 	// on the master. Order is significant. If empty, a default list of plugins is used.
 	PluginOrderOverride []string
+}
+
+// PodLimitRequestConfig is the configuration for the PodLimitRequest
+// admission controller which overrides user-provided container request/limit values.
+type PodLimitRequestConfig struct {
+	unversioned.TypeMeta
+	// Enabled must be true for the plugin to do anything. It can be
+	// overridden per-project with the annotation openshift.io/PodLimitRequestEnabled
+	Enabled bool
+	// LimitCPUToMemoryRatio (if > 0.0) pegs the CPU limit to a ratio of the memory limit;
+	// a base ratio of 1.0 scales CPU to 1000mcore per 1GiB of RAM.
+	LimitCPUToMemoryRatio float64
+	// CPURequestToLimitRatio (if > 0.0) pegs CPU request to a ratio of CPU limit
+	CPURequestToLimitRatio float64
+	// MemoryRequestToLimitRatio (if > 0.0) pegs memory request to a ratio of memory limit
+	MemoryRequestToLimitRatio float64
 }
