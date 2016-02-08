@@ -13,7 +13,6 @@ import (
 	apierrors "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/resource"
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/runtime"
 )
 
 func TestLimitsObjectAndOverrides(t *testing.T) {
@@ -96,7 +95,7 @@ func setupPodLimitRequestTest(t *testing.T, pluginConfig *api.PodLimitRequestCon
 	}
 	// set our config as desired
 	kubeMaster.AdmissionConfig.PluginConfig["PodLimitRequest"] =
-		api.AdmissionPluginConfig{Configuration: runtime.EmbeddedObject{Object: pluginConfig}}
+		api.AdmissionPluginConfig{Configuration: pluginConfig}
 
 	// start up a server and return useful clients to that server
 	clusterAdminKubeConfig, err := testserver.StartConfiguredMaster(masterConfig)
