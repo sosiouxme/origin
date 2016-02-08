@@ -42,7 +42,7 @@ import (
 )
 
 // AdmissionPlugins is the full list of admission control plugins to enable in the order they must run
-var AdmissionPlugins = []string{"NamespaceLifecycle", "OriginPodNodeEnvironment", "PodLimitRequest", "LimitRanger", "ServiceAccount", "SecurityContextConstraint", "BuildDefaults", "BuildOverrides", "ResourceQuota", "SCCExecRestrictions"}
+var AdmissionPlugins = []string{"NamespaceLifecycle", "OriginPodNodeEnvironment", "ClusterResourceOverride", "LimitRanger", "ServiceAccount", "SecurityContextConstraint", "BuildDefaults", "BuildOverrides", "ResourceQuota", "SCCExecRestrictions"}
 
 // MasterConfig defines the required values to start a Kubernetes master
 type MasterConfig struct {

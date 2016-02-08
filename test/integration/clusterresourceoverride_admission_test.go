@@ -15,20 +15,20 @@ import (
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
-func TestLimitsObjectAndOverrides(t *testing.T) {
-	config := api.PodLimitRequestConfig{
+func TestClusterResourceOverridePlugin(t *testing.T) {
+	config := api.ClusterResourceOverrideConfig{
 		Enabled:                   true,
 		LimitCPUToMemoryRatio:     1.0,
 		CPURequestToLimitRatio:    0.5,
 		MemoryRequestToLimitRatio: 0.5,
 	}
-	kubeClient := setupPodLimitRequestTest(t, &config)
+	kubeClient := setupClusterResourceOverrideTest(t, &config)
 	podHandler := kubeClient.Pods(testutil.Namespace())
 	limitHandler := kubeClient.LimitRanges(testutil.Namespace())
 
 	// test with no limits object present
 
-	podCreated, err := podHandler.Create(testPodLimitRequestPod("limitless", "2Gi", "1"))
+	podCreated, err := podHandler.Create(testClusterResourceOverridePod("limitless", "2Gi", "1"))
 	checkErr(t, err)
 	if memory := podCreated.Spec.Containers[0].Resources.Requests.Memory(); memory.Cmp(resource.MustParse("1Gi")) != 0 {
 		t.Errorf("limitlesspod: Memory did not match expected 1Gi: %#v", memory)
@@ -58,7 +58,7 @@ func TestLimitsObjectAndOverrides(t *testing.T) {
 	}
 	_, err = limitHandler.Create(limit)
 	checkErr(t, err)
-	podCreated, err = podHandler.Create(testPodLimitRequestPod("limit-with-default", "", "1"))
+	podCreated, err = podHandler.Create(testClusterResourceOverridePod("limit-with-default", "", "1"))
 	checkErr(t, err)
 	if memory := podCreated.Spec.Containers[0].Resources.Limits.Memory(); memory.Cmp(resource.MustParse("512Mi")) != 0 {
 		t.Errorf("limit-with-default: Memory limit did not match default 512Mi: %v", memory)
@@ -74,7 +74,7 @@ func TestLimitsObjectAndOverrides(t *testing.T) {
 	}
 
 	// set it up so that the overrides create resources that fail validation
-	_, err = podHandler.Create(testPodLimitRequestPod("limit-with-default-fail", "128Mi", "1"))
+	_, err = podHandler.Create(testClusterResourceOverridePod("limit-with-default-fail", "128Mi", "1"))
 	if err == nil {
 		t.Errorf("limit-with-default-fail: expected to be forbidden")
 	} else if !apierrors.IsForbidden(err) {
@@ -82,7 +82,7 @@ func TestLimitsObjectAndOverrides(t *testing.T) {
 	}
 }
 
-func setupPodLimitRequestTest(t *testing.T, pluginConfig *api.PodLimitRequestConfig) kclient.Interface {
+func setupClusterResourceOverrideTest(t *testing.T, pluginConfig *api.ClusterResourceOverrideConfig) kclient.Interface {
 	masterConfig, err := testserver.DefaultMasterOptions()
 	checkErr(t, err)
 	// fill in possibly-empty config values
@@ -94,7 +94,7 @@ func setupPodLimitRequestTest(t *testing.T, pluginConfig *api.PodLimitRequestCon
 		kubeMaster.AdmissionConfig.PluginConfig = map[string]api.AdmissionPluginConfig{}
 	}
 	// set our config as desired
-	kubeMaster.AdmissionConfig.PluginConfig["PodLimitRequest"] =
+	kubeMaster.AdmissionConfig.PluginConfig["ClusterResourceOverride"] =
 		api.AdmissionPluginConfig{Configuration: pluginConfig}
 
 	// start up a server and return useful clients to that server
@@ -113,7 +113,7 @@ func setupPodLimitRequestTest(t *testing.T, pluginConfig *api.PodLimitRequestCon
 	return clusterAdminKubeClient
 }
 
-func testPodLimitRequestPod(name string, memory string, cpu string) *kapi.Pod {
+func testClusterResourceOverridePod(name string, memory string, cpu string) *kapi.Pod {
 	resources := kapi.ResourceRequirements{
 		Limits:   testResourceList(memory, cpu),
 		Requests: kapi.ResourceList{},

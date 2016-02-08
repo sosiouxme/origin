@@ -396,7 +396,7 @@ type AssetConfig struct {
 	MetricsPublicURL string `json:"metricsPublicURL"`
 
 	// LimitRequestOverrides contains the ratios for overriding request/limit on containers.
-	LimitRequestOverrides PodLimitRequestConfig `json:"limitRequestOverrides"`
+	LimitRequestOverrides ClusterResourceOverrideConfig `json:"limitRequestOverrides"`
 
 	// ExtensionScripts are file paths on the asset server files to load as scripts when the Web
 	// Console loads
@@ -954,12 +954,12 @@ type AdmissionConfig struct {
 	PluginOrderOverride []string `json:"pluginOrderOverride,omitempty"`
 }
 
-// PodLimitRequestConfig is the configuration for the PodLimitRequest
+// ClusterResourceOverrideConfig is the configuration for the ClusterResourceOverride
 // admission controller which overrides user-provided container request/limit values.
-type PodLimitRequestConfig struct {
+type ClusterResourceOverrideConfig struct {
 	unversioned.TypeMeta `json:",inline"`
 	// Enabled must be true for the plugin to do anything. It can be
-	// overridden per-project with the annotation openshift.io/PodLimitRequestEnabled
+	// overridden per-project with the annotation openshift.io/ClusterResourceOverrideEnabled
 	Enabled bool `json:"enabled"`
 	// LimitCPUToMemoryRatio (if > 0.0) pegs the CPU limit to a ratio of the memory limit
 	// a base ratio of 1.0 scales CPU to 1000mcore per 1GiB of RAM.

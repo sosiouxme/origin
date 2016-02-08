@@ -442,7 +442,7 @@ type AssetConfig struct {
 	MetricsPublicURL string
 
 	// LimitRequestOverrides contains the ratios for overriding request/limit on containers.
-	LimitRequestOverrides PodLimitRequestConfig
+	LimitRequestOverrides ClusterResourceOverrideConfig
 
 	// ExtensionScripts are file paths on the asset server files to load as scripts when the Web
 	// Console loads
@@ -1002,18 +1002,25 @@ type AdmissionConfig struct {
 	PluginOrderOverride []string
 }
 
-// PodLimitRequestConfig is the configuration for the PodLimitRequest
+// ClusterResourceOverrideConfig is the configuration for the ClusterResourceOverride
 // admission controller which overrides user-provided container request/limit values.
-type PodLimitRequestConfig struct {
+type ClusterResourceOverrideConfig struct {
 	unversioned.TypeMeta
-	// Enabled must be true for the plugin to do anything. It can be
-	// overridden per-project with the annotation openshift.io/PodLimitRequestEnabled
+	// Enabled must be true for the plugin to do anything.
+	// The plugin's actions can be disabled per-project with the project annotation
+	// quota.openshift.io/cluster-resource-override-enabled="false", so cluster admins
+	// can exempt infrastructure projects and such from the overrides.
 	Enabled bool
-	// LimitCPUToMemoryRatio (if > 0.0) pegs the CPU limit to a ratio of the memory limit;
-	// a base ratio of 1.0 scales CPU to 1000mcore per 1GiB of RAM.
+	// For each of the following, if a non-zero ratio is specified then the initial
+	// value (if any) in the pod spec is overwritten according to the ratio.
+	// LimitRange defaults are merged prior to the override.
+	//
+	// LimitCPUToMemoryRatio (if > 0.0) overrides the CPU limit to a ratio of the memory limit;
+	// a base ratio of 1.0 scales CPU to 1000mcore per 1GiB of RAM. This is done before
+	// overriding the CPU request.
 	LimitCPUToMemoryRatio float64
-	// CPURequestToLimitRatio (if > 0.0) pegs CPU request to a ratio of CPU limit
+	// CPURequestToLimitRatio (if > 0.0) overrides CPU request to a ratio of CPU limit
 	CPURequestToLimitRatio float64
-	// MemoryRequestToLimitRatio (if > 0.0) pegs memory request to a ratio of memory limit
+	// MemoryRequestToLimitRatio (if > 0.0) overrides memory request to a ratio of memory limit
 	MemoryRequestToLimitRatio float64
 }

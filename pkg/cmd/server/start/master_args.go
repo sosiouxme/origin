@@ -24,7 +24,7 @@ import (
 	configapiv1 "github.com/openshift/origin/pkg/cmd/server/api/v1"
 	"github.com/openshift/origin/pkg/cmd/server/bootstrappolicy"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
-	podlimitreq "github.com/openshift/origin/pkg/quota/admission/podlimitrequest"
+	podlimitreq "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride"
 	"github.com/spf13/cobra"
 )
 
@@ -185,15 +185,15 @@ func (args MasterArgs) BuildSerializeableMasterConfig() (*configapi.MasterConfig
 
 	dnsServingInfo := servingInfoForAddr(&dnsBindAddr)
 
-	limitRequestConfig := configapi.PodLimitRequestConfig{}
-	if podLimitRequest, err := admission.GetPluginConfigFile(kubernetesMasterConfig.AdmissionConfig.PluginConfig, "PodLimitRequest", ""); err != nil {
+	overrideConfig := configapi.ClusterResourceOverrideConfig{}
+	if overridePluginConfigFile, err := admission.GetPluginConfigFile(kubernetesMasterConfig.AdmissionConfig.PluginConfig, "ClusterResourceOverride", ""); err != nil {
 		return nil, err
-	} else if podLimitRequest != "" {
-		configIo, err := os.Open(podLimitRequest)
+	} else if overridePluginConfigFile != "" {
+		configFile, err := os.Open(overridePluginConfigFile)
 		if err != nil {
 			return nil, err
 		}
-		if limitRequestConfig, err = podlimitreq.ReadConfig(configIo); err != nil {
+		if overrideConfig, err = podlimitreq.ReadConfig(configFile); err != nil {
 			return nil, err
 		}
 	}
@@ -220,7 +220,7 @@ func (args MasterArgs) BuildSerializeableMasterConfig() (*configapi.MasterConfig
 			LogoutURL:             "",
 			MasterPublicURL:       masterPublicAddr.String(),
 			PublicURL:             assetPublicAddr.String(),
-			LimitRequestOverrides: limitRequestConfig,
+			LimitRequestOverrides: overrideConfig,
 		},
 
 		DNSConfig: &configapi.DNSConfig{

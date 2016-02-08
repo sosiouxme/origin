@@ -35,12 +35,12 @@ func addKnownTypes(scheme *runtime.Scheme) {
 		&GoogleIdentityProvider{},
 		&OpenIDIdentityProvider{},
 		&LDAPSyncConfig{},
-		&PodLimitRequestConfig{},
+		&ClusterResourceOverrideConfig{},
 	)
 }
 
 func (obj *LDAPSyncConfig) GetObjectKind() unversioned.ObjectKind        { return &obj.TypeMeta }
-func (obj *PodLimitRequestConfig) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }
+func (obj *ClusterResourceOverrideConfig) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }
 
 func (obj *OpenIDIdentityProvider) GetObjectKind() unversioned.ObjectKind        { return &obj.TypeMeta }
 func (obj *GoogleIdentityProvider) GetObjectKind() unversioned.ObjectKind        { return &obj.TypeMeta }

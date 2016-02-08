@@ -237,7 +237,7 @@ type WebConsoleConfig struct {
 	//   LimitCPUToMemoryRatio
 	//   CPURequestToLimitRatio
 	//   MemoryRequestToLimitRatio
-	LimitRequestOverrides api.PodLimitRequestConfig
+	LimitRequestOverrides api.ClusterResourceOverrideConfig
 }
 
 func GeneratedConfigHandler(config WebConsoleConfig, version WebConsoleVersion) (http.Handler, error) {

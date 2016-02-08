@@ -1,4 +1,4 @@
-package podlimitrequest
+package clusterresourceoverride
 
 import (
 	"bytes"
@@ -21,7 +21,7 @@ import (
 const (
 	yamlConfig = `
 apiVersion: v1
-kind: PodLimitRequestConfig
+kind: ClusterResourceOverrideConfig
 enabled: true
 limitCPUToMemoryRatio: 1.0
 cpuRequestToLimitRatio: 0.1
@@ -29,7 +29,7 @@ memoryRequestToLimitRatio: 0.25
 `
 	invalidConfig = `
 apiVersion: v1
-kind: PodLimitRequestConfig
+kind: ClusterResourceOverrideConfig
 enabled: true
 cpuRequestToLimitRatio: 2.0
 `
@@ -42,9 +42,9 @@ const (
 )
 
 var (
-	configMeta = unversioned.TypeMeta{Kind: "PodLimitRequestConfig", APIVersion: "v1"}
+	configMeta = unversioned.TypeMeta{Kind: "ClusterResourceOverrideConfig", APIVersion: "v1"}
 	//configMeta   = unversioned.TypeMeta{}
-	targetConfig = api.PodLimitRequestConfig{
+	targetConfig = api.ClusterResourceOverrideConfig{
 		TypeMeta:                  configMeta,
 		Enabled:                   true,
 		LimitCPUToMemoryRatio:     1.0,
@@ -87,7 +87,7 @@ func TestConfigReader(t *testing.T) {
 func TestLimitRequestAdmission(t *testing.T) {
 	tests := []struct {
 		name               string
-		config             api.PodLimitRequestConfig
+		config             api.ClusterResourceOverrideConfig
 		object             runtime.Object
 		expectedMemRequest resource.Quantity
 		expectedCpuLimit   resource.Quantity
@@ -134,11 +134,11 @@ func TestLimitRequestAdmission(t *testing.T) {
 
 	for _, test := range tests {
 		config, _ := json.Marshal(test.config)
-		c, err := newPodLimitRequest(&ktestclient.Fake{}, bytes.NewReader(config))
+		c, err := newClusterResourceOverride(&ktestclient.Fake{}, bytes.NewReader(config))
 		if err != nil {
 			t.Errorf("%s: config de/serialize failed: %v", test.name, err)
 		}
-		c.(*podLimitRequest).SetProjectCache(fakeProjectCache(test.namespace))
+		c.(*clusterResourceOverridePlugin).SetProjectCache(fakeProjectCache(test.namespace))
 		attrs := admission.NewAttributesRecord(test.object, unversioned.GroupKind{}, test.namespace.Name, "name", kapi.Resource("pods"), "", admission.Create, fakeUser())
 		if err := c.Admit(attrs); err != nil {
 			t.Errorf("%s: admission controller should not return error", test.name)
@@ -199,7 +199,7 @@ func fakeNamespace(pluginEnabled bool) *kapi.Namespace {
 		},
 	}
 	if !pluginEnabled {
-		ns.Annotations[podLimitRequestAnnotation] = "false"
+		ns.Annotations[clusterResourceOverrideAnnotation] = "false"
 	}
 	return ns
 }
@@ -210,8 +210,8 @@ func fakeProjectCache(ns *kapi.Namespace) *projectcache.ProjectCache {
 	return projectcache.NewFake((&ktestclient.Fake{}).Namespaces(), store, "")
 }
 
-func testConfig(enabled bool, lc2mr float64, cr2lr float64, mr2lr float64) api.PodLimitRequestConfig {
-	return api.PodLimitRequestConfig{
+func testConfig(enabled bool, lc2mr float64, cr2lr float64, mr2lr float64) api.ClusterResourceOverrideConfig {
+	return api.ClusterResourceOverrideConfig{
 		TypeMeta:                  configMeta,
 		Enabled:                   enabled,
 		LimitCPUToMemoryRatio:     lc2mr,
