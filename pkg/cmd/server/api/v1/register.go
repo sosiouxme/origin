@@ -39,7 +39,7 @@ func addKnownTypes(scheme *runtime.Scheme) {
 	)
 }
 
-func (obj *LDAPSyncConfig) GetObjectKind() unversioned.ObjectKind        { return &obj.TypeMeta }
+func (obj *LDAPSyncConfig) GetObjectKind() unversioned.ObjectKind                { return &obj.TypeMeta }
 func (obj *ClusterResourceOverrideConfig) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }
 
 func (obj *OpenIDIdentityProvider) GetObjectKind() unversioned.ObjectKind        { return &obj.TypeMeta }
