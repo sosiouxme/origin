@@ -6,10 +6,11 @@ import (
 
 // AssetConfig defines the required parameters for starting the OpenShift master
 type AssetConfig struct {
-	Options configapi.AssetConfig
+	Options               configapi.AssetConfig
+	AdmissionPluginConfig map[string]configapi.AdmissionPluginConfig
 }
 
-// BuildAssetConfig returns a new AssetConfig
-func BuildAssetConfig(options configapi.AssetConfig) (*AssetConfig, error) {
-	return &AssetConfig{options}, nil
+// NewAssetConfig returns a new AssetConfig
+func NewAssetConfig(options configapi.AssetConfig, admissionPluginConfig map[string]configapi.AdmissionPluginConfig) (*AssetConfig, error) {
+	return &AssetConfig{options, admissionPluginConfig}, nil
 }

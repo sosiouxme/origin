@@ -441,9 +441,6 @@ type AssetConfig struct {
 	// MetricsPublicURL is the public endpoint for metrics (optional)
 	MetricsPublicURL string
 
-	// LimitRequestOverrides contains the ratios for overriding request/limit on containers.
-	LimitRequestOverrides ClusterResourceOverrideConfig
-
 	// ExtensionScripts are file paths on the asset server files to load as scripts when the Web
 	// Console loads
 	ExtensionScripts []string

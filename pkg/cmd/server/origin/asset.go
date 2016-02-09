@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -17,9 +18,11 @@ import (
 	"github.com/openshift/origin/pkg/api/latest"
 	"github.com/openshift/origin/pkg/assets"
 	"github.com/openshift/origin/pkg/assets/java"
+	"github.com/openshift/origin/pkg/cmd/server/admission"
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
 	"github.com/openshift/origin/pkg/cmd/server/crypto"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
+	override "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride"
 	oversion "github.com/openshift/origin/pkg/version"
 
 	kapi "k8s.io/kubernetes/pkg/api"
@@ -196,6 +199,19 @@ func (c *AssetConfig) addHandlers(mux *http.ServeMux) error {
 		return fmt.Errorf("Resources for kubernetes and origin types intersect: %v", commonResources.List())
 	}
 
+	overrideConfig := configapi.ClusterResourceOverrideConfig{}
+	if overridePluginConfigFile, err := admission.GetPluginConfigFile(c.AdmissionPluginConfig, "ClusterResourceOverride", ""); err != nil {
+		return err
+	} else if overridePluginConfigFile != "" {
+		configFile, err := os.Open(overridePluginConfigFile)
+		if err != nil {
+			return err
+		}
+		if overrideConfig, err = override.ReadConfig(configFile); err != nil {
+			return err
+		}
+	}
+
 	// Generated web console config and server version
 	config := assets.WebConsoleConfig{
 		APIGroupAddr:          masterURL.Host,
@@ -212,7 +228,7 @@ func (c *AssetConfig) addHandlers(mux *http.ServeMux) error {
 		LogoutURI:             c.Options.LogoutURL,
 		LoggingURL:            c.Options.LoggingPublicURL,
 		MetricsURL:            c.Options.MetricsPublicURL,
-		LimitRequestOverrides: c.Options.LimitRequestOverrides,
+		LimitRequestOverrides: overrideConfig,
 	}
 	kVersionInfo := kversion.Get()
 	oVersionInfo := oversion.Get()

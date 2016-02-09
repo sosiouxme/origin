@@ -83,11 +83,6 @@ assetConfig:
   - html5Mode: false
     name: ""
     sourceDirectory: ""
-  limitRequestOverrides:
-    cpuRequestToLimitRatio: 0
-    enabled: false
-    limitCPUToMemoryRatio: 0
-    memoryRequestToLimitRatio: 0
   loggingPublicURL: ""
   logoutURL: ""
   masterPublicURL: ""

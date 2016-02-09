@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"os"
 	"path"
 	"strconv"
 
@@ -19,12 +18,10 @@ import (
 
 	"github.com/openshift/origin/pkg/cmd/flagtypes"
 	"github.com/openshift/origin/pkg/cmd/server/admin"
-	"github.com/openshift/origin/pkg/cmd/server/admission"
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
 	configapiv1 "github.com/openshift/origin/pkg/cmd/server/api/v1"
 	"github.com/openshift/origin/pkg/cmd/server/bootstrappolicy"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
-	podlimitreq "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride"
 	"github.com/spf13/cobra"
 )
 
@@ -185,19 +182,6 @@ func (args MasterArgs) BuildSerializeableMasterConfig() (*configapi.MasterConfig
 
 	dnsServingInfo := servingInfoForAddr(&dnsBindAddr)
 
-	overrideConfig := configapi.ClusterResourceOverrideConfig{}
-	if overridePluginConfigFile, err := admission.GetPluginConfigFile(kubernetesMasterConfig.AdmissionConfig.PluginConfig, "ClusterResourceOverride", ""); err != nil {
-		return nil, err
-	} else if overridePluginConfigFile != "" {
-		configFile, err := os.Open(overridePluginConfigFile)
-		if err != nil {
-			return nil, err
-		}
-		if overrideConfig, err = podlimitreq.ReadConfig(configFile); err != nil {
-			return nil, err
-		}
-	}
-
 	config := &configapi.MasterConfig{
 		ServingInfo: configapi.HTTPServingInfo{
 			ServingInfo: listenServingInfo,
@@ -217,10 +201,9 @@ func (args MasterArgs) BuildSerializeableMasterConfig() (*configapi.MasterConfig
 				ServingInfo: listenServingInfo,
 			},
 
-			LogoutURL:             "",
-			MasterPublicURL:       masterPublicAddr.String(),
-			PublicURL:             assetPublicAddr.String(),
-			LimitRequestOverrides: overrideConfig,
+			LogoutURL:       "",
+			MasterPublicURL: masterPublicAddr.String(),
+			PublicURL:       assetPublicAddr.String(),
 		},
 
 		DNSConfig: &configapi.DNSConfig{

@@ -451,7 +451,7 @@ func StartAPI(oc *origin.MasterConfig, kc *kubernetes.MasterConfig) error {
 
 	var standaloneAssetConfig *origin.AssetConfig
 	if oc.WebConsoleEnabled() {
-		config, err := origin.BuildAssetConfig(*oc.Options.AssetConfig)
+		config, err := origin.NewAssetConfig(*oc.Options.AssetConfig, oc.Options.KubernetesMasterConfig.AdmissionConfig.PluginConfig)
 		if err != nil {
 			return err
 		}
