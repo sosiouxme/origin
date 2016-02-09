@@ -7,10 +7,10 @@ import (
 // AssetConfig defines the required parameters for starting the OpenShift master
 type AssetConfig struct {
 	Options               configapi.AssetConfig
-	AdmissionPluginConfig map[string]configapi.AdmissionPluginConfig
+	LimitRequestOverrides configapi.ClusterResourceOverrideConfig
 }
 
 // NewAssetConfig returns a new AssetConfig
-func NewAssetConfig(options configapi.AssetConfig, admissionPluginConfig map[string]configapi.AdmissionPluginConfig) (*AssetConfig, error) {
-	return &AssetConfig{options, admissionPluginConfig}, nil
+func NewAssetConfig(options configapi.AssetConfig, limitRequestOverrides configapi.ClusterResourceOverrideConfig) (*AssetConfig, error) {
+	return &AssetConfig{options, limitRequestOverrides}, nil
 }

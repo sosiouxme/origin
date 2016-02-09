@@ -21,6 +21,7 @@ import (
 	kubelettypes "k8s.io/kubernetes/pkg/kubelet/types"
 
 	"github.com/openshift/origin/pkg/cmd/server/admin"
+	"github.com/openshift/origin/pkg/cmd/server/admission"
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
 	configapilatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
 	"github.com/openshift/origin/pkg/cmd/server/api/validation"
@@ -30,6 +31,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/server/kubernetes"
 	"github.com/openshift/origin/pkg/cmd/server/origin"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
+	override "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride"
 	"github.com/openshift/origin/pkg/version"
 )
 
@@ -451,7 +453,20 @@ func StartAPI(oc *origin.MasterConfig, kc *kubernetes.MasterConfig) error {
 
 	var standaloneAssetConfig *origin.AssetConfig
 	if oc.WebConsoleEnabled() {
-		config, err := origin.NewAssetConfig(*oc.Options.AssetConfig, oc.Options.KubernetesMasterConfig.AdmissionConfig.PluginConfig)
+		overrideConfig := configapi.ClusterResourceOverrideConfig{}
+		if overridePluginConfigFile, err := admission.GetPluginConfigFile(oc.Options.KubernetesMasterConfig.AdmissionConfig.PluginConfig, "ClusterResourceOverride", ""); err != nil {
+			return err
+		} else if overridePluginConfigFile != "" {
+			configFile, err := os.Open(overridePluginConfigFile)
+			if err != nil {
+				return err
+			}
+			if overrideConfig, err = override.ReadConfig(configFile); err != nil {
+				return err
+			}
+		}
+
+		config, err := origin.NewAssetConfig(*oc.Options.AssetConfig, overrideConfig)
 		if err != nil {
 			return err
 		}
