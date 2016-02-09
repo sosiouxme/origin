@@ -84,17 +84,17 @@ func ReadConfig(configFile io.Reader) (api.ClusterResourceOverrideConfig, error)
 
 func Validate(config api.ClusterResourceOverrideConfig) error {
 	if config.Enabled {
-		if config.LimitCPUToMemoryRatio == 0.0 && config.CPURequestToLimitRatio == 0.0 && config.MemoryRequestToLimitRatio == 0.0 {
+		if config.LimitCPUToMemoryPercent == 0.0 && config.CPURequestToLimitPercent == 0.0 && config.MemoryRequestToLimitPercent == 0.0 {
 			return fmt.Errorf("ClusterResourceOverride plugin enabled but no ratios specified")
 		}
-		if config.LimitCPUToMemoryRatio < 0.0 {
-			return fmt.Errorf("LimitCPUToMemoryRatio must be positive")
+		if config.LimitCPUToMemoryPercent < 0.0 {
+			return fmt.Errorf("LimitCPUToMemoryPercent must be positive")
 		}
-		if config.CPURequestToLimitRatio < 0.0 || config.CPURequestToLimitRatio > 1.0 {
-			return fmt.Errorf("CPURequestToLimitRatio must be between 0.0 and 1.0")
+		if config.CPURequestToLimitPercent < 0.0 || config.CPURequestToLimitPercent > 100.0 {
+			return fmt.Errorf("CPURequestToLimitPercent must be between 0.0 and 100.0")
 		}
-		if config.MemoryRequestToLimitRatio < 0.0 || config.MemoryRequestToLimitRatio > 1.0 {
-			return fmt.Errorf("MemoryRequestToLimitRatio must be between 0.0 and 1.0")
+		if config.MemoryRequestToLimitPercent < 0.0 || config.MemoryRequestToLimitPercent > 100.0 {
+			return fmt.Errorf("MemoryRequestToLimitPercent must be between 0.0 and 100.0")
 		}
 	}
 	return nil
@@ -153,21 +153,21 @@ func (a *clusterResourceOverridePlugin) Admit(attr admission.Attributes) error {
 		// with 3 places of accuracy for millicores. In order to maintain 3 places of accuracy
 		// for CPU there is some hocus-pocus with the "scale" component when multiplying
 		// (inf.Dec does not have a multiplication method).
-		if a.Config.LimitCPUToMemoryRatio != 0.0 {
+		if a.Config.LimitCPUToMemoryPercent != 0.0 {
 			resources.Limits[kapi.ResourceCPU] = resource.Quantity{
-				Amount: inf.NewDec(int64(float64(memLimit.Value())*a.Config.LimitCPUToMemoryRatio*cpuBaseScaleFactor), 3),
+				Amount: inf.NewDec(int64(float64(memLimit.Value())*cpuBaseScaleFactor*a.Config.LimitCPUToMemoryPercent/100.0), 3),
 				Format: resources.Limits.Cpu().Format,
 			}
 		}
-		if a.Config.CPURequestToLimitRatio != 0.0 {
+		if a.Config.CPURequestToLimitPercent != 0.0 {
 			resources.Requests[kapi.ResourceCPU] = resource.Quantity{
-				Amount: inf.NewDec(int64(float64(resources.Limits.Cpu().MilliValue())*a.Config.CPURequestToLimitRatio), 3),
+				Amount: inf.NewDec(int64(float64(resources.Limits.Cpu().MilliValue())*a.Config.CPURequestToLimitPercent/100.0), 3),
 				Format: resources.Requests.Cpu().Format,
 			}
 		}
-		if a.Config.MemoryRequestToLimitRatio != 0.0 {
+		if a.Config.MemoryRequestToLimitPercent != 0.0 {
 			resources.Requests[kapi.ResourceMemory] = resource.Quantity{
-				Amount: inf.NewDec(int64(float64(resources.Limits.Memory().Value())*a.Config.MemoryRequestToLimitRatio), 0),
+				Amount: inf.NewDec(int64(float64(resources.Limits.Memory().Value())*a.Config.MemoryRequestToLimitPercent/100.0), 0),
 				Format: resources.Requests.Memory().Format,
 			}
 		}

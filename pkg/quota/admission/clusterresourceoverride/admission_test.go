@@ -23,15 +23,15 @@ const (
 apiVersion: v1
 kind: ClusterResourceOverrideConfig
 enabled: true
-limitCPUToMemoryRatio: 1.0
-cpuRequestToLimitRatio: 0.1
-memoryRequestToLimitRatio: 0.25
+limitCPUToMemoryPercent: 100
+cpuRequestToLimitPercent: 10
+memoryRequestToLimitPercent: 25
 `
 	invalidConfig = `
 apiVersion: v1
 kind: ClusterResourceOverrideConfig
 enabled: true
-cpuRequestToLimitRatio: 2.0
+cpuRequestToLimitPercent: 200
 `
 	invalidConfig2 = `Enabled: true`
 )
@@ -45,16 +45,16 @@ var (
 	configMeta = unversioned.TypeMeta{Kind: "ClusterResourceOverrideConfig", APIVersion: "v1"}
 	//configMeta   = unversioned.TypeMeta{}
 	targetConfig = api.ClusterResourceOverrideConfig{
-		TypeMeta:                  configMeta,
-		Enabled:                   true,
-		LimitCPUToMemoryRatio:     1.0,
-		CPURequestToLimitRatio:    0.1,
-		MemoryRequestToLimitRatio: 0.25,
+		TypeMeta:                    configMeta,
+		Enabled:                     true,
+		LimitCPUToMemoryPercent:     100,
+		CPURequestToLimitPercent:    10,
+		MemoryRequestToLimitPercent: 25,
 	}
 )
 
 func TestConfigReader(t *testing.T) {
-	initial := testConfig(true, 0.1, 0.2, 0.3)
+	initial := testConfig(true, 10, 20, 30)
 	if config, err := json.Marshal(initial); err != nil {
 		t.Errorf("json.Marshal: config serialize failed: %v", err)
 	} else if returned, readerr := ReadConfig(bytes.NewReader(config)); readerr != nil {
@@ -96,7 +96,7 @@ func TestLimitRequestAdmission(t *testing.T) {
 	}{
 		{
 			name:               "this thing even runs",
-			config:             testConfig(true, 1.0, 0.5, 0.5),
+			config:             testConfig(true, 100, 50, 50),
 			object:             testPod("0", "0", "0", "0"),
 			expectedMemRequest: resource.MustParse("0"),
 			expectedCpuLimit:   resource.MustParse("0"),
@@ -105,7 +105,7 @@ func TestLimitRequestAdmission(t *testing.T) {
 		},
 		{
 			name:               "all values are adjusted",
-			config:             testConfig(true, 1.0, 0.5, 0.5),
+			config:             testConfig(true, 100, 50, 50),
 			object:             testPod("1Gi", "0", "2000m", "0"),
 			expectedMemRequest: resource.MustParse("512Mi"),
 			expectedCpuLimit:   resource.MustParse("1"),
@@ -114,7 +114,7 @@ func TestLimitRequestAdmission(t *testing.T) {
 		},
 		{
 			name:               "just requests are adjusted",
-			config:             testConfig(true, 0.0, 0.5, 0.5),
+			config:             testConfig(true, 0, 50, 50),
 			object:             testPod("10Mi", "0", "50m", "0"),
 			expectedMemRequest: resource.MustParse("5Mi"),
 			expectedCpuLimit:   resource.MustParse("50m"),
@@ -123,7 +123,7 @@ func TestLimitRequestAdmission(t *testing.T) {
 		},
 		{
 			name:               "project annotation disables overrides",
-			config:             testConfig(true, 0.0, 0.5, 0.5),
+			config:             testConfig(true, 0, 50, 50),
 			object:             testPod("10Mi", "0", "50m", "0"),
 			expectedMemRequest: resource.MustParse("0"),
 			expectedCpuLimit:   resource.MustParse("50m"),
@@ -212,10 +212,10 @@ func fakeProjectCache(ns *kapi.Namespace) *projectcache.ProjectCache {
 
 func testConfig(enabled bool, lc2mr float64, cr2lr float64, mr2lr float64) api.ClusterResourceOverrideConfig {
 	return api.ClusterResourceOverrideConfig{
-		TypeMeta:                  configMeta,
-		Enabled:                   enabled,
-		LimitCPUToMemoryRatio:     lc2mr,
-		CPURequestToLimitRatio:    cr2lr,
-		MemoryRequestToLimitRatio: mr2lr,
+		TypeMeta:                    configMeta,
+		Enabled:                     enabled,
+		LimitCPUToMemoryPercent:     lc2mr,
+		CPURequestToLimitPercent:    cr2lr,
+		MemoryRequestToLimitPercent: mr2lr,
 	}
 }

@@ -1012,12 +1012,11 @@ type ClusterResourceOverrideConfig struct {
 	// value (if any) in the pod spec is overwritten according to the ratio.
 	// LimitRange defaults are merged prior to the override.
 	//
-	// LimitCPUToMemoryRatio (if > 0.0) overrides the CPU limit to a ratio of the memory limit;
-	// a base ratio of 1.0 scales CPU to 1000mcore per 1GiB of RAM. This is done before
-	// overriding the CPU request.
-	LimitCPUToMemoryRatio float64
-	// CPURequestToLimitRatio (if > 0.0) overrides CPU request to a ratio of CPU limit
-	CPURequestToLimitRatio float64
-	// MemoryRequestToLimitRatio (if > 0.0) overrides memory request to a ratio of memory limit
-	MemoryRequestToLimitRatio float64
+	// LimitCPUToMemoryPercent (if > 0) overrides the CPU limit to a ratio of the memory limit;
+	// 100% overrides CPU to 1 core per 1GiB of RAM. This is done before overriding the CPU request.
+	LimitCPUToMemoryPercent float64
+	// CPURequestToLimitPercent (if > 0) overrides CPU request to a percentage of CPU limit
+	CPURequestToLimitPercent float64
+	// MemoryRequestToLimitPercent (if > 0) overrides memory request to a percentage of memory limit
+	MemoryRequestToLimitPercent float64
 }

@@ -193,9 +193,9 @@ window.OPENSHIFT_CONFIG = {
   limitRequestOverrides: {
 	{{ with .LimitRequestOverrides }}
 	enabled: {{ .Enabled }},
-	limitCPUToMemoryRatio: {{ .LimitCPUToMemoryRatio }},
-	cpuRequestToLimitRatio: {{ .CPURequestToLimitRatio }},
-	memoryRequestToLimitRatio: {{ .MemoryRequestToLimitRatio }}
+	limitCPUToMemoryPercent: {{ .LimitCPUToMemoryPercent }},
+	cpuRequestToLimitPercent: {{ .CPURequestToLimitPercent }},
+	memoryRequestToLimitPercent: {{ .MemoryRequestToLimitPercent }}
     {{ end }}
   }
 };

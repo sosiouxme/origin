@@ -17,10 +17,10 @@ import (
 
 func TestClusterResourceOverridePlugin(t *testing.T) {
 	config := api.ClusterResourceOverrideConfig{
-		Enabled:                   true,
-		LimitCPUToMemoryRatio:     1.0,
-		CPURequestToLimitRatio:    0.5,
-		MemoryRequestToLimitRatio: 0.5,
+		Enabled:                     true,
+		LimitCPUToMemoryPercent:     100,
+		CPURequestToLimitPercent:    50,
+		MemoryRequestToLimitPercent: 50,
 	}
 	kubeClient := setupClusterResourceOverrideTest(t, &config)
 	podHandler := kubeClient.Pods(testutil.Namespace())

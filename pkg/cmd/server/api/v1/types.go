@@ -955,14 +955,20 @@ type AdmissionConfig struct {
 // admission controller which overrides user-provided container request/limit values.
 type ClusterResourceOverrideConfig struct {
 	unversioned.TypeMeta `json:",inline"`
-	// Enabled must be true for the plugin to do anything. It can be
-	// overridden per-project with the annotation openshift.io/ClusterResourceOverrideEnabled
+	// Enabled must be true for the plugin to do anything.
+	// The plugin's actions can be disabled per-project with the project annotation
+	// quota.openshift.io/cluster-resource-override-enabled="false", so cluster admins
+	// can exempt infrastructure projects and such from the overrides.
 	Enabled bool `json:"enabled"`
-	// LimitCPUToMemoryRatio (if > 0.0) pegs the CPU limit to a ratio of the memory limit
-	// a base ratio of 1.0 scales CPU to 1000mcore per 1GiB of RAM.
-	LimitCPUToMemoryRatio float64 `json:"limitCPUToMemoryRatio"`
-	// CPURequestToLimitRatio (if > 0.0) pegs CPU request to a ratio of CPU limit;
-	CPURequestToLimitRatio float64 `json:"cpuRequestToLimitRatio"`
-	// MemoryRequestToLimitRatio (if > 0.0) pegs memory request to a ratio of memory limit
-	MemoryRequestToLimitRatio float64 `json:"memoryRequestToLimitRatio"`
+	// For each of the following, if a non-zero ratio is specified then the initial
+	// value (if any) in the pod spec is overwritten according to the ratio.
+	// LimitRange defaults are merged prior to the override.
+	//
+	// LimitCPUToMemoryPercent (if > 0) overrides the CPU limit to a ratio of the memory limit;
+	// 100% overrides CPU to 1 core per 1GiB of RAM. This is done before overriding the CPU request.
+	LimitCPUToMemoryPercent float64 `json:"limitCPUToMemoryPercent"`
+	// CPURequestToLimitPercent (if > 0) overrides CPU request to a percentage of CPU limit
+	CPURequestToLimitPercent float64 `json:"cpuRequestToLimitPercent"`
+	// MemoryRequestToLimitPercent (if > 0) overrides memory request to a percentage of memory limit
+	MemoryRequestToLimitPercent float64 `json:"memoryRequestToLimitPercent"`
 }
