@@ -188,16 +188,15 @@ window.OPENSHIFT_CONFIG = {
   	oauth_client_id: "{{ .OAuthClientID | js}}",
   	logout_uri: "{{ .LogoutURI | js}}"
   },
-  loggingURL: "{{ .LoggingURL | js}}",
-  metricsURL: "{{ .MetricsURL | js}}",
+  {{ with .LimitRequestOverrides }}
   limitRequestOverrides: {
-	{{ with .LimitRequestOverrides }}
-	enabled: {{ .Enabled }},
 	limitCPUToMemoryPercent: {{ .LimitCPUToMemoryPercent }},
 	cpuRequestToLimitPercent: {{ .CPURequestToLimitPercent }},
 	memoryRequestToLimitPercent: {{ .MemoryRequestToLimitPercent }}
-    {{ end }}
-  }
+  },
+  {{ end }}
+  loggingURL: "{{ .LoggingURL | js}}",
+  metricsURL: "{{ .MetricsURL | js}}"
 };
 `))
 
@@ -233,11 +232,10 @@ type WebConsoleConfig struct {
 	MetricsURL string
 	// LimitRequestOverrides contains the ratios for overriding request/limit on containers.
 	// Applied in order:
-	//   Enabled (no overrides apply if not enabled)
-	//   LimitCPUToMemoryRatio
-	//   CPURequestToLimitRatio
-	//   MemoryRequestToLimitRatio
-	LimitRequestOverrides api.ClusterResourceOverrideConfig
+	//   LimitCPUToMemoryPercent
+	//   CPURequestToLimitPercent
+	//   MemoryRequestToLimitPercent
+	LimitRequestOverrides *api.ClusterResourceOverrideConfig
 }
 
 func GeneratedConfigHandler(config WebConsoleConfig, version WebConsoleVersion) (http.Handler, error) {

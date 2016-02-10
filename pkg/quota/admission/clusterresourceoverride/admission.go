@@ -34,7 +34,7 @@ func init() {
 
 type clusterResourceOverridePlugin struct {
 	*admission.Handler
-	Config       api.ClusterResourceOverrideConfig
+	Config       *api.ClusterResourceOverrideConfig
 	ProjectCache *cache.ProjectCache
 	LimitRanger  admission.Interface
 }
@@ -66,24 +66,24 @@ func (a *clusterResourceOverridePlugin) SetProjectCache(projectCache *cache.Proj
 	a.ProjectCache = projectCache
 }
 
-func ReadConfig(configFile io.Reader) (api.ClusterResourceOverrideConfig, error) {
-	config := api.ClusterResourceOverrideConfig{}
+func ReadConfig(configFile io.Reader) (*api.ClusterResourceOverrideConfig, error) {
 	if configFile == nil || reflect.ValueOf(configFile).IsNil() /* pointer to nil */ {
 		glog.V(5).Infof("ClusterResourceOverride has no config to read.")
-		return config, nil
+		return nil, nil
 	}
 	glog.V(5).Infof("ClusterResourceOverride about to read config:\n%v", configFile)
 	buffer := new(bytes.Buffer)
 	if _, err := buffer.ReadFrom(configFile); err != nil {
-		return config, err
+		return nil, err
 	}
-	err := yaml.Unmarshal(buffer.Bytes(), &config)
+	config := &api.ClusterResourceOverrideConfig{}
+	err := yaml.Unmarshal(buffer.Bytes(), config)
 	glog.V(5).Infof("ClusterResourceOverride config:\n%v\nerror: %v", config, err)
 	return config, err
 }
 
-func Validate(config api.ClusterResourceOverrideConfig) error {
-	if config.Enabled {
+func Validate(config *api.ClusterResourceOverrideConfig) error {
+	if config != nil {
 		if config.LimitCPUToMemoryPercent == 0.0 && config.CPURequestToLimitPercent == 0.0 && config.MemoryRequestToLimitPercent == 0.0 {
 			return fmt.Errorf("ClusterResourceOverride plugin enabled but no ratios specified")
 		}
@@ -112,7 +112,7 @@ func (a *clusterResourceOverridePlugin) Validate() error {
 // TODO this will need to update when we have pod requests/limits
 func (a *clusterResourceOverridePlugin) Admit(attr admission.Attributes) error {
 	glog.V(8).Infof("ClusterResourceOverride admission controller is invoked")
-	if !a.Config.Enabled || attr.GetResource() != kapi.Resource("pods") || attr.GetSubresource() != "" {
+	if a.Config == nil || attr.GetResource() != kapi.Resource("pods") || attr.GetSubresource() != "" {
 		return nil // not applicable
 	}
 	pod, ok := attr.GetObject().(*kapi.Pod)

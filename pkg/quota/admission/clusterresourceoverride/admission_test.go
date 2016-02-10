@@ -36,17 +36,11 @@ cpuRequestToLimitPercent: 200
 	invalidConfig2 = `Enabled: true`
 )
 
-const (
-	oneGiB  = 1024 * 1024 * 1024
-	oneCore = 1000 // milliCores, scaled by 3
-)
-
 var (
 	configMeta = unversioned.TypeMeta{Kind: "ClusterResourceOverrideConfig", APIVersion: "v1"}
 	//configMeta   = unversioned.TypeMeta{}
-	targetConfig = api.ClusterResourceOverrideConfig{
+	targetConfig = &api.ClusterResourceOverrideConfig{
 		TypeMeta:                    configMeta,
-		Enabled:                     true,
 		LimitCPUToMemoryPercent:     100,
 		CPURequestToLimitPercent:    10,
 		MemoryRequestToLimitPercent: 25,
@@ -54,12 +48,18 @@ var (
 )
 
 func TestConfigReader(t *testing.T) {
+	if empty, err := ReadConfig(nil); err != nil {
+		t.Errorf("error on processing nil config: %v", err)
+	} else if empty != nil {
+		t.Errorf("should have gotten nil reading a nil config: %v", err)
+	}
+
 	initial := testConfig(true, 10, 20, 30)
 	if config, err := json.Marshal(initial); err != nil {
 		t.Errorf("json.Marshal: config serialize failed: %v", err)
 	} else if returned, readerr := ReadConfig(bytes.NewReader(config)); readerr != nil {
 		t.Errorf("ReadConfig: config deserialize failed: %v", readerr)
-	} else if returned != initial {
+	} else if *returned != *initial {
 		t.Errorf("ReadConfig: expected %v, got %v", initial, returned)
 	}
 
@@ -68,7 +68,7 @@ func TestConfigReader(t *testing.T) {
 	}
 	if config, err := ReadConfig(bytes.NewReader([]byte(yamlConfig))); err != nil {
 		t.Errorf("should have been able to deserialize yaml: %v", err)
-	} else if config != targetConfig {
+	} else if *config != *targetConfig {
 		t.Errorf("target for yamlConfig: was %v, should have been %v", config, targetConfig)
 	}
 	if config, err := ReadConfig(bytes.NewReader([]byte(invalidConfig))); err != nil {
@@ -87,7 +87,7 @@ func TestConfigReader(t *testing.T) {
 func TestLimitRequestAdmission(t *testing.T) {
 	tests := []struct {
 		name               string
-		config             api.ClusterResourceOverrideConfig
+		config             *api.ClusterResourceOverrideConfig
 		object             runtime.Object
 		expectedMemRequest resource.Quantity
 		expectedCpuLimit   resource.Quantity
@@ -210,10 +210,9 @@ func fakeProjectCache(ns *kapi.Namespace) *projectcache.ProjectCache {
 	return projectcache.NewFake((&ktestclient.Fake{}).Namespaces(), store, "")
 }
 
-func testConfig(enabled bool, lc2mr float64, cr2lr float64, mr2lr float64) api.ClusterResourceOverrideConfig {
-	return api.ClusterResourceOverrideConfig{
+func testConfig(enabled bool, lc2mr float64, cr2lr float64, mr2lr float64) *api.ClusterResourceOverrideConfig {
+	return &api.ClusterResourceOverrideConfig{
 		TypeMeta:                    configMeta,
-		Enabled:                     enabled,
 		LimitCPUToMemoryPercent:     lc2mr,
 		CPURequestToLimitPercent:    cr2lr,
 		MemoryRequestToLimitPercent: mr2lr,

@@ -955,11 +955,6 @@ type AdmissionConfig struct {
 // admission controller which overrides user-provided container request/limit values.
 type ClusterResourceOverrideConfig struct {
 	unversioned.TypeMeta `json:",inline"`
-	// Enabled must be true for the plugin to do anything.
-	// The plugin's actions can be disabled per-project with the project annotation
-	// quota.openshift.io/cluster-resource-override-enabled="false", so cluster admins
-	// can exempt infrastructure projects and such from the overrides.
-	Enabled bool `json:"enabled"`
 	// For each of the following, if a non-zero ratio is specified then the initial
 	// value (if any) in the pod spec is overwritten according to the ratio.
 	// LimitRange defaults are merged prior to the override.
