@@ -48,6 +48,7 @@ func addKnownTypes(scheme *runtime.Scheme) {
 		&GitLabIdentityProvider{},
 		&GoogleIdentityProvider{},
 		&OpenIDIdentityProvider{},
+
 		&LDAPSyncConfig{},
 	)
 }
