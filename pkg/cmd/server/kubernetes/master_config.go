@@ -38,6 +38,7 @@ import (
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
 	"github.com/openshift/origin/pkg/cmd/server/etcd"
 	cmdflags "github.com/openshift/origin/pkg/cmd/util/flags"
+	"github.com/openshift/origin/pkg/cmd/util/pluginconfig"
 	projectcache "github.com/openshift/origin/pkg/project/cache"
 )
 
@@ -144,7 +145,7 @@ func BuildKubernetesMasterConfig(options configapi.MasterConfig, requestContextM
 			plugins = append(plugins, saAdmitter)
 
 		default:
-			configFile, err := oadmission.GetPluginConfigFile(options.KubernetesMasterConfig.AdmissionConfig.PluginConfig, pluginName, server.AdmissionControlConfigFile)
+			configFile, err := pluginconfig.GetPluginConfigFile(options.KubernetesMasterConfig.AdmissionConfig.PluginConfig, pluginName, server.AdmissionControlConfigFile)
 			if err != nil {
 				return nil, err
 			}
