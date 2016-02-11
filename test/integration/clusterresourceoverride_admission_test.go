@@ -14,6 +14,8 @@ import (
 	apierrors "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/resource"
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
+
+	_ "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/install"
 )
 
 func TestClusterResourceOverridePlugin(t *testing.T) {
@@ -94,7 +96,7 @@ func setupClusterResourceOverrideTest(t *testing.T, pluginConfig *overrideapi.Cl
 		kubeMaster.AdmissionConfig.PluginConfig = map[string]api.AdmissionPluginConfig{}
 	}
 	// set our config as desired
-	kubeMaster.AdmissionConfig.PluginConfig["ClusterResourceOverride"] =
+	kubeMaster.AdmissionConfig.PluginConfig[overrideapi.PluginName] =
 		api.AdmissionPluginConfig{Configuration: pluginConfig}
 
 	// start up a server and return useful clients to that server
