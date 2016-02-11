@@ -7,6 +7,7 @@ import (
 
 	"github.com/openshift/origin/pkg/cmd/server/api"
 	"github.com/openshift/origin/pkg/cmd/server/bootstrappolicy"
+	overrideapi "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
 	testutil "github.com/openshift/origin/test/util"
 	testserver "github.com/openshift/origin/test/util/server"
 	kapi "k8s.io/kubernetes/pkg/api"
@@ -16,7 +17,7 @@ import (
 )
 
 func TestClusterResourceOverridePlugin(t *testing.T) {
-	config := &api.ClusterResourceOverrideConfig{
+	config := &overrideapi.ClusterResourceOverrideConfig{
 		LimitCPUToMemoryPercent:     100,
 		CPURequestToLimitPercent:    50,
 		MemoryRequestToLimitPercent: 50,
@@ -81,7 +82,7 @@ func TestClusterResourceOverridePlugin(t *testing.T) {
 	}
 }
 
-func setupClusterResourceOverrideTest(t *testing.T, pluginConfig *api.ClusterResourceOverrideConfig) kclient.Interface {
+func setupClusterResourceOverrideTest(t *testing.T, pluginConfig *overrideapi.ClusterResourceOverrideConfig) kclient.Interface {
 	masterConfig, err := testserver.DefaultMasterOptions()
 	checkErr(t, err)
 	// fill in possibly-empty config values

@@ -32,6 +32,7 @@ import (
 	"github.com/openshift/origin/pkg/cmd/server/origin"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
 	override "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride"
+	overrideapi "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
 	"github.com/openshift/origin/pkg/version"
 )
 
@@ -453,7 +454,7 @@ func StartAPI(oc *origin.MasterConfig, kc *kubernetes.MasterConfig) error {
 
 	var standaloneAssetConfig *origin.AssetConfig
 	if oc.WebConsoleEnabled() {
-		var overrideConfig *configapi.ClusterResourceOverrideConfig = nil
+		var overrideConfig *overrideapi.ClusterResourceOverrideConfig = nil
 		if overridePluginConfigFile, err := admission.GetPluginConfigFile(oc.Options.KubernetesMasterConfig.AdmissionConfig.PluginConfig, "ClusterResourceOverride", ""); err != nil {
 			return err
 		} else if overridePluginConfigFile != "" {

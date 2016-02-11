@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/openshift/origin/pkg/cmd/server/api"
+	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
 	"k8s.io/kubernetes/pkg/util"
 )
 

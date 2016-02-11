@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/openshift/origin/pkg/cmd/server/api"
 	projectcache "github.com/openshift/origin/pkg/project/cache"
+	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
 	"k8s.io/kubernetes/pkg/admission"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
