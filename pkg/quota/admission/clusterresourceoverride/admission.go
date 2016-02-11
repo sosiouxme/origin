@@ -28,7 +28,7 @@ const (
 )
 
 func init() {
-	admission.RegisterPlugin("ClusterResourceOverride", func(client kclient.Interface, config io.Reader) (admission.Interface, error) {
+	admission.RegisterPlugin(api.PluginName, func(client kclient.Interface, config io.Reader) (admission.Interface, error) {
 		return newClusterResourceOverride(client, config)
 	})
 }
@@ -46,9 +46,8 @@ var _ = oadmission.Validator(&clusterResourceOverridePlugin{})
 // newClusterResourceOverride returns an admission controller for containers that
 // configurably overrides container resource request/limits
 func newClusterResourceOverride(client kclient.Interface, config io.Reader) (admission.Interface, error) {
-	glog.V(5).Infof("ClusterResourceOverride admission controller is loaded")
 	parsed, err := ReadConfig(config)
-	glog.V(5).Infof("ClusterResourceOverride admission controller got config: %v\nerror: (%T) %[2]v", parsed, err)
+	glog.V(5).Infof("%s admission controller got config: %v\nerror: (%T) %[3]v", api.PluginName, parsed, err)
 	return &clusterResourceOverridePlugin{
 		Handler:     admission.NewHandler(admission.Create),
 		Config:      parsed,
@@ -69,17 +68,17 @@ func (a *clusterResourceOverridePlugin) SetProjectCache(projectCache *cache.Proj
 
 func ReadConfig(configFile io.Reader) (*api.ClusterResourceOverrideConfig, error) {
 	if configFile == nil || reflect.ValueOf(configFile).IsNil() /* pointer to nil */ {
-		glog.V(5).Infof("ClusterResourceOverride has no config to read.")
+		glog.V(5).Infof("%s has no config to read.", api.PluginName)
 		return nil, nil
 	}
-	glog.V(5).Infof("ClusterResourceOverride about to read config:\n%v", configFile)
+	glog.V(5).Infof("%s about to read config:\n%v", api.PluginName, configFile)
 	buffer := new(bytes.Buffer)
 	if _, err := buffer.ReadFrom(configFile); err != nil {
 		return nil, err
 	}
 	config := &api.ClusterResourceOverrideConfig{}
 	err := yaml.Unmarshal(buffer.Bytes(), config)
-	glog.V(5).Infof("ClusterResourceOverride config:\n%v\nerror: %v", config, err)
+	glog.V(5).Infof("%s config:\n%v\nerror: %v", api.PluginName, config, err)
 	return config, err
 }
 
@@ -88,14 +87,14 @@ func (a *clusterResourceOverridePlugin) Validate() error {
 		return err
 	}
 	if a.ProjectCache == nil {
-		return fmt.Errorf("ClusterResourceOverride did not get a project cache")
+		return fmt.Errorf("%s did not get a project cache", api.PluginName)
 	}
 	return nil
 }
 
 // TODO this will need to update when we have pod requests/limits
 func (a *clusterResourceOverridePlugin) Admit(attr admission.Attributes) error {
-	glog.V(8).Infof("ClusterResourceOverride admission controller is invoked")
+	glog.V(6).Infof("%s admission controller is invoked", api.PluginName)
 	if a.Config == nil || attr.GetResource() != kapi.Resource("pods") || attr.GetSubresource() != "" {
 		return nil // not applicable
 	}
@@ -103,31 +102,31 @@ func (a *clusterResourceOverridePlugin) Admit(attr admission.Attributes) error {
 	if !ok {
 		return admission.NewForbidden(attr, fmt.Errorf("unexpected object: %#v", attr.GetObject()))
 	}
-	glog.V(5).Infof("ClusterResourceOverride is looking at creating pod %s in project %s", pod.Name, attr.GetNamespace())
+	glog.V(5).Infof("%s is looking at creating pod %s in project %s", api.PluginName, pod.Name, attr.GetNamespace())
 
 	// allow annotations on project to override
 	if ns, err := a.ProjectCache.GetNamespace(attr.GetNamespace()); err != nil {
-		glog.Warningf("ClusterResourceOverride got an error retrieving namespace: %v", err)
+		glog.Warningf("%s got an error retrieving namespace: %v", api.PluginName, err)
 		return admission.NewForbidden(attr, err) // this should not happen though
 	} else {
 		projectEnabledPlugin, exists := ns.Annotations[clusterResourceOverrideAnnotation]
 		if exists && projectEnabledPlugin != "true" {
-			glog.V(5).Infof("ClusterResourceOverride is disabled for project %s", attr.GetNamespace())
+			glog.V(5).Infof("%s is disabled for project %s", api.PluginName, attr.GetNamespace())
 			return nil // disabled for this project, do nothing
 		}
 	}
 
 	// Reuse LimitRanger logic to apply limit/req defaults from the project. Ignore validation
 	// errors, assume that LimitRanger will run after this plugin to validate.
-	glog.V(5).Infof("ClusterResourceOverride: initial pod limits are: %#v", pod.Spec.Containers[0].Resources)
+	glog.V(5).Infof("%s: initial pod limits are: %#v", api.PluginName, pod.Spec.Containers[0].Resources)
 	if err := a.LimitRanger.Admit(attr); err != nil {
-		glog.V(5).Infof("ClusterResourceOverride: error from LimitRanger: %#v", err)
+		glog.V(5).Infof("%s: error from LimitRanger: %#v", api.PluginName, err)
 	}
 	pod, ok = attr.GetObject().(*kapi.Pod)
 	if !ok {
 		return admission.NewForbidden(attr, fmt.Errorf("unexpected object: %#v", attr.GetObject()))
 	}
-	glog.V(5).Infof("ClusterResourceOverride: pod limits after LimitRanger are: %#v", pod.Spec.Containers[0].Resources)
+	glog.V(5).Infof("%s: pod limits after LimitRanger are: %#v", api.PluginName, pod.Spec.Containers[0].Resources)
 	for _, container := range pod.Spec.Containers {
 		resources := container.Resources
 		memLimit := resources.Limits.Memory()
@@ -156,6 +155,6 @@ func (a *clusterResourceOverridePlugin) Admit(attr admission.Attributes) error {
 			}
 		}
 	}
-	glog.V(5).Infof("ClusterResourceOverride: pod limits after overrides are: %#v", pod.Spec.Containers[0].Resources)
+	glog.V(5).Infof("%s: pod limits after overrides are: %#v", api.PluginName, pod.Spec.Containers[0].Resources)
 	return nil
 }

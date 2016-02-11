@@ -455,7 +455,7 @@ func StartAPI(oc *origin.MasterConfig, kc *kubernetes.MasterConfig) error {
 	var standaloneAssetConfig *origin.AssetConfig
 	if oc.WebConsoleEnabled() {
 		var overrideConfig *overrideapi.ClusterResourceOverrideConfig = nil
-		if overridePluginConfigFile, err := pluginconfig.GetPluginConfigFile(oc.Options.KubernetesMasterConfig.AdmissionConfig.PluginConfig, "ClusterResourceOverride", ""); err != nil {
+		if overridePluginConfigFile, err := pluginconfig.GetPluginConfigFile(oc.Options.KubernetesMasterConfig.AdmissionConfig.PluginConfig, overrideapi.PluginName, ""); err != nil {
 			return err
 		} else if overridePluginConfigFile != "" {
 			configFile, err := os.Open(overridePluginConfigFile)

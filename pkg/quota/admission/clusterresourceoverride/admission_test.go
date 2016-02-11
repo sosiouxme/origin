@@ -38,7 +38,7 @@ cpuRequestToLimitPercent: 200
 )
 
 var (
-	configMeta = unversioned.TypeMeta{Kind: "ClusterResourceOverrideConfig", APIVersion: "v1"}
+	configMeta = unversioned.TypeMeta{Kind: api.ConfigKind, APIVersion: "v1"}
 	//configMeta   = unversioned.TypeMeta{}
 	targetConfig = &api.ClusterResourceOverrideConfig{
 		TypeMeta:                    configMeta,
