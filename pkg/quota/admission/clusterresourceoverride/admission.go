@@ -9,7 +9,7 @@ import (
 	oadmission "github.com/openshift/origin/pkg/cmd/server/admission"
 	"github.com/openshift/origin/pkg/project/cache"
 	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
-	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/validate"
+	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/validation"
 	"k8s.io/kubernetes/pkg/admission"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
@@ -87,7 +87,7 @@ func ReadConfig(configFile io.Reader) (*api.ClusterResourceOverrideConfig, error
 }
 
 func (a *clusterResourceOverridePlugin) Validate() error {
-	if err := validate.Validate(a.Config); err != nil {
+	if err := validation.Validate(a.Config); err != nil {
 		return err
 	}
 	if a.ProjectCache == nil {
