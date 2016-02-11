@@ -47,12 +47,16 @@ var _ = oadmission.Validator(&clusterResourceOverridePlugin{})
 // configurably overrides container resource request/limits
 func newClusterResourceOverride(client kclient.Interface, config io.Reader) (admission.Interface, error) {
 	parsed, err := ReadConfig(config)
-	glog.V(5).Infof("%s admission controller got config: %v\nerror: (%T) %[3]v", api.PluginName, parsed, err)
+	if err != nil {
+		glog.V(5).Infof("%s admission controller loaded with error: (%T) %[2]v", api.PluginName, err)
+		return nil, err
+	}
+	glog.V(5).Infof("%s admission controller loaded with config: %v", api.PluginName, parsed)
 	return &clusterResourceOverridePlugin{
 		Handler:     admission.NewHandler(admission.Create),
 		Config:      parsed,
 		LimitRanger: limitranger.NewLimitRanger(client, wrapLimit),
-	}, err
+	}, nil
 }
 
 func wrapLimit(limitRange *kapi.LimitRange, resourceName string, obj runtime.Object) error {
@@ -121,10 +125,6 @@ func (a *clusterResourceOverridePlugin) Admit(attr admission.Attributes) error {
 	glog.V(5).Infof("%s: initial pod limits are: %#v", api.PluginName, pod.Spec.Containers[0].Resources)
 	if err := a.LimitRanger.Admit(attr); err != nil {
 		glog.V(5).Infof("%s: error from LimitRanger: %#v", api.PluginName, err)
-	}
-	pod, ok = attr.GetObject().(*kapi.Pod)
-	if !ok {
-		return admission.NewForbidden(attr, fmt.Errorf("unexpected object: %#v", attr.GetObject()))
 	}
 	glog.V(5).Infof("%s: pod limits after LimitRanger are: %#v", api.PluginName, pod.Spec.Containers[0].Resources)
 	for _, container := range pod.Spec.Containers {
