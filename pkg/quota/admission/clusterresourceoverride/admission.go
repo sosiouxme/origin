@@ -9,6 +9,7 @@ import (
 	oadmission "github.com/openshift/origin/pkg/cmd/server/admission"
 	"github.com/openshift/origin/pkg/project/cache"
 	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
+	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/validate"
 	"k8s.io/kubernetes/pkg/admission"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
@@ -82,25 +83,8 @@ func ReadConfig(configFile io.Reader) (*api.ClusterResourceOverrideConfig, error
 	return config, err
 }
 
-func Validate(config *api.ClusterResourceOverrideConfig) error {
-	if config != nil {
-		if config.LimitCPUToMemoryPercent == 0.0 && config.CPURequestToLimitPercent == 0.0 && config.MemoryRequestToLimitPercent == 0.0 {
-			return fmt.Errorf("ClusterResourceOverride plugin enabled but no ratios specified")
-		}
-		if config.LimitCPUToMemoryPercent < 0.0 {
-			return fmt.Errorf("LimitCPUToMemoryPercent must be positive")
-		}
-		if config.CPURequestToLimitPercent < 0.0 || config.CPURequestToLimitPercent > 100.0 {
-			return fmt.Errorf("CPURequestToLimitPercent must be between 0.0 and 100.0")
-		}
-		if config.MemoryRequestToLimitPercent < 0.0 || config.MemoryRequestToLimitPercent > 100.0 {
-			return fmt.Errorf("MemoryRequestToLimitPercent must be between 0.0 and 100.0")
-		}
-	}
-	return nil
-}
 func (a *clusterResourceOverridePlugin) Validate() error {
-	if err := Validate(a.Config); err != nil {
+	if err := validate.Validate(a.Config); err != nil {
 		return err
 	}
 	if a.ProjectCache == nil {

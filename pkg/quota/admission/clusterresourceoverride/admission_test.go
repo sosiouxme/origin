@@ -8,6 +8,7 @@ import (
 
 	projectcache "github.com/openshift/origin/pkg/project/cache"
 	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
+	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/validate"
 	"k8s.io/kubernetes/pkg/admission"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
@@ -73,12 +74,12 @@ func TestConfigReader(t *testing.T) {
 	}
 	if config, err := ReadConfig(bytes.NewReader([]byte(invalidConfig))); err != nil {
 		t.Errorf("ReadConfig invalidConfig: config deserialize failed: %v", err)
-	} else if err2 := Validate(config); err2 == nil {
+	} else if err2 := validate.Validate(config); err2 == nil {
 		t.Errorf("should have choked on out-of-bounds ratio")
 	}
 	if config, err := ReadConfig(bytes.NewReader([]byte(invalidConfig2))); err != nil {
 		t.Errorf("ReadConfig invalidConfig2: config deserialize failed: %v", err)
-	} else if err2 := Validate(config); err2 == nil {
+	} else if err2 := validate.Validate(config); err2 == nil {
 		t.Errorf("should have complained about no ratios being set")
 	}
 
