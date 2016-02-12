@@ -23,7 +23,6 @@ const (
 	yamlConfig = `
 apiVersion: v1
 kind: ClusterResourceOverrideConfig
-enabled: true
 limitCPUToMemoryPercent: 100
 cpuRequestToLimitPercent: 10
 memoryRequestToLimitPercent: 25
@@ -31,7 +30,6 @@ memoryRequestToLimitPercent: 25
 	invalidConfig = `
 apiVersion: v1
 kind: ClusterResourceOverrideConfig
-enabled: true
 cpuRequestToLimitPercent: 200
 `
 	invalidConfig2 = `Enabled: true`

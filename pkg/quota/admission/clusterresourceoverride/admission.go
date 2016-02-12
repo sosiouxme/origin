@@ -1,12 +1,13 @@
 package clusterresourceoverride
 
 import (
-	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"reflect"
 
 	oadmission "github.com/openshift/origin/pkg/cmd/server/admission"
+	configlatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
 	"github.com/openshift/origin/pkg/project/cache"
 	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
 	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/validation"
@@ -17,7 +18,6 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/plugin/pkg/admission/limitranger"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"speter.net/go/exp/math/dec/inf"
 )
@@ -75,15 +75,18 @@ func ReadConfig(configFile io.Reader) (*api.ClusterResourceOverrideConfig, error
 		glog.V(5).Infof("%s has no config to read.", api.PluginName)
 		return nil, nil
 	}
-	glog.V(5).Infof("%s about to read config:\n%v", api.PluginName, configFile)
-	buffer := new(bytes.Buffer)
-	if _, err := buffer.ReadFrom(configFile); err != nil {
+	configBytes, err := ioutil.ReadAll(configFile)
+	if err != nil {
 		return nil, err
 	}
 	config := &api.ClusterResourceOverrideConfig{}
-	err := yaml.Unmarshal(buffer.Bytes(), config)
-	glog.V(5).Infof("%s config:\n%v\nerror: %v", api.PluginName, config, err)
-	return config, err
+	err = configlatest.ReadYAML(configBytes, config)
+	if err != nil {
+		glog.V(5).Infof("%s error reading config: %v", api.PluginName, err)
+		return nil, err
+	}
+	glog.V(5).Infof("%s config is: %v", api.PluginName, config)
+	return config, nil
 }
 
 func (a *clusterResourceOverridePlugin) Validate() error {
