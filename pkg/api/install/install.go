@@ -15,6 +15,7 @@ import (
 	_ "github.com/openshift/origin/pkg/oauth/api/install"
 	_ "github.com/openshift/origin/pkg/project/admission/requestlimit/api/install"
 	_ "github.com/openshift/origin/pkg/project/api/install"
+	_ "github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/install"
 	_ "github.com/openshift/origin/pkg/quota/admission/runonceduration/api/install"
 	_ "github.com/openshift/origin/pkg/route/api/install"
 	_ "github.com/openshift/origin/pkg/sdn/api/install"

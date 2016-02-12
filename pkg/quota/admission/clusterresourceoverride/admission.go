@@ -79,6 +79,7 @@ func ReadConfig(configFile io.Reader) (*api.ClusterResourceOverrideConfig, error
 	if err != nil {
 		return nil, err
 	}
+
 	config := &api.ClusterResourceOverrideConfig{}
 	err = configlatest.ReadYAML(configBytes, config)
 	if err != nil {

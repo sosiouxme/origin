@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	projectcache "github.com/openshift/origin/pkg/project/cache"
-	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
-	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/validation"
 	"k8s.io/kubernetes/pkg/admission"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
@@ -17,6 +14,13 @@ import (
 	"k8s.io/kubernetes/pkg/client/cache"
 	ktestclient "k8s.io/kubernetes/pkg/client/unversioned/testclient"
 	"k8s.io/kubernetes/pkg/runtime"
+
+	configapilatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
+	projectcache "github.com/openshift/origin/pkg/project/cache"
+	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api"
+	"github.com/openshift/origin/pkg/quota/admission/clusterresourceoverride/api/validation"
+
+	_ "github.com/openshift/origin/pkg/api/install"
 )
 
 const (
@@ -39,7 +43,6 @@ var (
 	configMeta = unversioned.TypeMeta{Kind: api.ConfigKind, APIVersion: "v1"}
 	//configMeta   = unversioned.TypeMeta{}
 	targetConfig = &api.ClusterResourceOverrideConfig{
-		TypeMeta:                    configMeta,
 		LimitCPUToMemoryPercent:     100,
 		CPURequestToLimitPercent:    10,
 		MemoryRequestToLimitPercent: 25,
@@ -54,7 +57,7 @@ func TestConfigReader(t *testing.T) {
 	}
 
 	initial := testConfig(true, 10, 20, 30)
-	if config, err := json.Marshal(initial); err != nil {
+	if config, err := configapilatest.WriteYAML(initial); err != nil {
 		t.Errorf("json.Marshal: config serialize failed: %v", err)
 	} else if returned, readerr := ReadConfig(bytes.NewReader(config)); readerr != nil {
 		t.Errorf("ReadConfig: config deserialize failed: %v", readerr)
@@ -211,7 +214,6 @@ func fakeProjectCache(ns *kapi.Namespace) *projectcache.ProjectCache {
 
 func testConfig(enabled bool, lc2mr float64, cr2lr float64, mr2lr float64) *api.ClusterResourceOverrideConfig {
 	return &api.ClusterResourceOverrideConfig{
-		TypeMeta:                    configMeta,
 		LimitCPUToMemoryPercent:     lc2mr,
 		CPURequestToLimitPercent:    cr2lr,
 		MemoryRequestToLimitPercent: mr2lr,
