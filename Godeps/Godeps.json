@@ -1028,10 +1028,6 @@
 			"Rev": "f4485b318aadd133842532f841dc205a8e339d74"
 		},
 		{
-			"ImportPath": "github.com/ugorji/go/codec/codecgen",
-			"Rev": "f4485b318aadd133842532f841dc205a8e339d74"
-		},
-		{
 			"ImportPath": "github.com/vishvananda/netlink",
 			"Rev": "1e2e08e8a2dcdacaae3f14ac44c5cfa31361f270"
 		},
