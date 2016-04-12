@@ -186,10 +186,11 @@ else
             -o -path "${kubernetes_path}/pkg/api/v1"                                                  \
             -o -path "${kubernetes_path}/test/e2e"                                                    \
             -o -path "${kubernetes_path}/cmd/libs/go2idl/client-gen/testoutput/testgroup/unversioned" \
+            -o -path "${kubernetes_path}/pkg/storage/etcd3" \
           \) -prune                                                                                   \
         \) -name '*_test.go' | xargs -n1 dirname | sort -u | xargs -n1 printf "${OS_GO_PACKAGE}/%s\n")"
 
-        test_packages="${test_packages} ${optional_kubernetes_packages}"
+        test_packages="${optional_kubernetes_packages}"
     fi
 fi
 
