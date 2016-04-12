@@ -8,7 +8,7 @@
 		{
 			"ImportPath": "bitbucket.org/ww/goautoneg",
 			"Comment": "null-5",
-			"Rev": "'75cd24fc2f2c2a2088577d12123ddee5f54e0675'"
+			"Rev": "75cd24fc2f2c2a2088577d12123ddee5f54e0675"
 		},
 		{
 			"ImportPath": "github.com/AaronO/go-git-http",
@@ -49,11 +49,6 @@
 		},
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.7.3-4-gaaf92c9",
-			"Rev": "aaf92c95712104318fc35409745f1533aa5ff327"
-		},
-		{
-			"ImportPath": "github.com/Sirupsen/logrus/formatters/logstash",
 			"Comment": "v0.7.3-4-gaaf92c9",
 			"Rev": "aaf92c95712104318fc35409745f1533aa5ff327"
 		},
@@ -1076,6 +1071,10 @@
 			"Rev": "c2528b2dd8352441850638a8bb678c2ad056fd3e"
 		},
 		{
+			"ImportPath": "golang.org/x/net/proxy",
+			"Rev": "c2528b2dd8352441850638a8bb678c2ad056fd3e"
+		},
+		{
 			"ImportPath": "golang.org/x/net/trace",
 			"Rev": "c2528b2dd8352441850638a8bb678c2ad056fd3e"
 		},
@@ -1127,6 +1126,10 @@
 			"ImportPath": "gopkg.in/asn1-ber.v1",
 			"Comment": "v1.1",
 			"Rev": "4e86f4367175e39f69d9358a5f17b4dda270378d"
+		},
+		{
+			"ImportPath": "gopkg.in/gcfg.v1",
+			"Rev": "083575c3955c85df16fe9590cceab64d03f5eb6e"
 		},
 		{
 			"ImportPath": "gopkg.in/ldap.v2",
