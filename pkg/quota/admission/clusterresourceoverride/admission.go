@@ -71,7 +71,7 @@ func newClusterResourceOverride(client clientset.Interface, config io.Reader) (a
 		}
 	}
 
-	limitRanger, err := limitranger.NewLimitRanger(client, wrapLimit)
+	limitRanger, err := limitranger.NewLimitRanger(client, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func newClusterResourceOverride(client clientset.Interface, config io.Reader) (a
 }
 
 func wrapLimit(limitRange *kapi.LimitRange, resourceName string, obj runtime.Object) error {
-	limitranger.Limit(limitRange, resourceName, obj)
+	// limitranger.Limit(limitRange, resourceName, obj)
 	// always return success so that all defaults will be applied.
 	// validation will occur after the overrides.
 	return nil
