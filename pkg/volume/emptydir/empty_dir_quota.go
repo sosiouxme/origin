@@ -8,7 +8,7 @@ import (
 )
 
 var _ volume.VolumePlugin = &EmptyDirQuotaPlugin{}
-var _ volume.Builder = &emptyDirQuotaBuilder{}
+var _ volume.Mounter = &emptyDirQuotaBuilder{}
 
 // EmptyDirQuotaPlugin is a simple wrapper for the k8s empty dir plugin builder.
 type EmptyDirQuotaPlugin struct {
@@ -23,8 +23,8 @@ type EmptyDirQuotaPlugin struct {
 	QuotaApplicator QuotaApplicator
 }
 
-func (plugin *EmptyDirQuotaPlugin) NewBuilder(spec *volume.Spec, pod *api.Pod, opts volume.VolumeOptions) (volume.Builder, error) {
-	volBuilder, err := plugin.Wrapped.NewBuilder(spec, pod, opts)
+func (plugin *EmptyDirQuotaPlugin) NewMounter(spec *volume.Spec, pod *api.Pod, opts volume.VolumeOptions) (volume.Mounter, error) {
+	volBuilder, err := plugin.Wrapped.NewMounter(spec, pod, opts)
 	if err != nil {
 		return volBuilder, err
 	}
@@ -61,15 +61,15 @@ func (plugin *EmptyDirQuotaPlugin) CanSupport(spec *volume.Spec) bool {
 	return plugin.Wrapped.CanSupport(spec)
 }
 
-func (plugin *EmptyDirQuotaPlugin) NewCleaner(volName string, podUID types.UID) (volume.Cleaner, error) {
-	return plugin.Wrapped.NewCleaner(volName, podUID)
+func (plugin *EmptyDirQuotaPlugin) NewUnmounter(volName string, podUID types.UID) (volume.Unmounter, error) {
+	return plugin.Wrapped.NewUnmounter(volName, podUID)
 }
 
 // emptyDirQuotaBuilder is a wrapper plugin builder for the k8s empty dir builder itself.
 // This plugin just extends and adds the functionality to apply a
 // quota for the pods FSGroup on an XFS filesystem.
 type emptyDirQuotaBuilder struct {
-	wrapped         volume.Builder
+	wrapped         volume.Mounter
 	pod             *api.Pod
 	medium          api.StorageMedium
 	quota           resource.Quantity
