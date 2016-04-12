@@ -16,6 +16,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/componentconfig"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
+	clientadapter "k8s.io/kubernetes/pkg/client/unversioned/adapters/internalclientset"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/kubelet/dockertools"
 	kubeletserver "k8s.io/kubernetes/pkg/kubelet/server"
@@ -33,7 +34,6 @@ import (
 	"github.com/openshift/origin/pkg/cmd/util/clientcmd"
 	cmdflags "github.com/openshift/origin/pkg/cmd/util/flags"
 	"github.com/openshift/origin/pkg/cmd/util/variable"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 )
 
 // NodeConfig represents the required parameters to start the OpenShift node
@@ -182,8 +182,8 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig) (*NodeConfig, error
 
 	// provide any config overrides
 	cfg.NodeName = options.NodeName
-	cfg.KubeClient = internalclientset.FromUnversionedClient(kubeClient)
-	cfg.EventClient = internalclientset.FromUnversionedClient(eventClient)
+	cfg.KubeClient = clientadapter.FromUnversionedClient(kubeClient)
+	cfg.EventClient = clientadapter.FromUnversionedClient(eventClient)
 	cfg.DockerExecHandler = dockerExecHandler
 
 	// docker-in-docker (dind) deployments are used for testing

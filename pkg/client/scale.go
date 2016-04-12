@@ -5,6 +5,7 @@ import (
 
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/apis/extensions"
+	unversioned_extensions_2 "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/unversioned"
 	unversioned_extensions "k8s.io/kubernetes/pkg/client/typed/generated/extensions/unversioned"
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
 
@@ -32,6 +33,26 @@ func NewDelegatingScaleNamespacer(dcNamespacer DeploymentConfigsNamespacer, sNam
 	return &delegatingScaleNamespacer{
 		dcNS:    dcNamespacer,
 		scaleNS: sNamespacer,
+	}
+}
+
+type delegatingScaleNamespacer2 struct {
+	delegatingScaleNamespacer *delegatingScaleNamespacer
+}
+
+func (c *delegatingScaleNamespacer2) Scales(namespace string) unversioned_extensions_2.ScaleInterface {
+	return &delegatingScaleInterface{
+		dcs:    c.delegatingScaleNamespacer.dcNS.DeploymentConfigs(namespace),
+		scales: c.delegatingScaleNamespacer.scaleNS.Scales(namespace),
+	}
+}
+
+func NewDelegatingScaleNamespacer2(dcNamespacer DeploymentConfigsNamespacer, sNamespacer kclient.ScaleNamespacer) unversioned_extensions_2.ScalesGetter {
+	return &delegatingScaleNamespacer2{
+		delegatingScaleNamespacer: &delegatingScaleNamespacer{
+			dcNS:    dcNamespacer,
+			scaleNS: sNamespacer,
+		},
 	}
 }
 
