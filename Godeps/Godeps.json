@@ -452,6 +452,31 @@
 			"Rev": "0f5c9d301b9b1cca66b3ea0f9dec3b5317d3686d"
 		},
 		{
+			"ImportPath": "github.com/docker/engine-api/client",
+			"Comment": "v0.2.2-173-g26cdffe",
+			"Rev": "26cdffeca716ae4df98070051a852b3198d7d153"
+		},
+		{
+			"ImportPath": "github.com/docker/engine-api/types",
+			"Comment": "v0.2.2-173-g26cdffe",
+			"Rev": "26cdffeca716ae4df98070051a852b3198d7d153"
+		},
+		{
+			"ImportPath": "github.com/docker/go-connections/nat",
+			"Comment": "v0.2.0-2-gf549a93",
+			"Rev": "f549a9393d05688dff0992ef3efd8bbe6c628aeb"
+		},
+		{
+			"ImportPath": "github.com/docker/go-connections/sockets",
+			"Comment": "v0.2.0-2-gf549a93",
+			"Rev": "f549a9393d05688dff0992ef3efd8bbe6c628aeb"
+		},
+		{
+			"ImportPath": "github.com/docker/go-connections/tlsconfig",
+			"Comment": "v0.2.0-2-gf549a93",
+			"Rev": "f549a9393d05688dff0992ef3efd8bbe6c628aeb"
+		},
+		{
 			"ImportPath": "github.com/docker/go-units",
 			"Comment": "v0.1.0-21-g0bbddae",
 			"Rev": "0bbddae09c5a5419a8c6dcdd7ff90da3d450393b"
