@@ -764,11 +764,6 @@
 			"Rev": "45c8b08e9af666add36a6f93ff8c1c75812367b0"
 		},
 		{
-			"ImportPath": "github.com/mesos/mesos-go/detector/zoo",
-			"Comment": "before-0.26-protos-33-g45c8b08",
-			"Rev": "45c8b08e9af666add36a6f93ff8c1c75812367b0"
-		},
-		{
 			"ImportPath": "github.com/mesos/mesos-go/mesosproto",
 			"Comment": "before-0.26-protos-33-g45c8b08",
 			"Rev": "45c8b08e9af666add36a6f93ff8c1c75812367b0"
