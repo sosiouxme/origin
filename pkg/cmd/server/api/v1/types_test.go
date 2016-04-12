@@ -1,31 +1,31 @@
 package v1_test
 
 import (
-	"testing"
+  "testing"
 
-	"github.com/ghodss/yaml"
-	"speter.net/go/exp/math/dec/inf"
+  "github.com/ghodss/yaml"
+  "speter.net/go/exp/math/dec/inf"
 
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/runtime/serializer"
-	"k8s.io/kubernetes/pkg/util"
+  "k8s.io/kubernetes/pkg/api/unversioned"
+  "k8s.io/kubernetes/pkg/runtime"
+  "k8s.io/kubernetes/pkg/runtime/serializer"
+  "k8s.io/kubernetes/pkg/util/diff"
 
-	internal "github.com/openshift/origin/pkg/cmd/server/api"
-	"github.com/openshift/origin/pkg/cmd/server/api/latest"
-	"github.com/openshift/origin/pkg/cmd/server/api/v1"
+  internal "github.com/openshift/origin/pkg/cmd/server/api"
+  "github.com/openshift/origin/pkg/cmd/server/api/latest"
+  "github.com/openshift/origin/pkg/cmd/server/api/v1"
 
-	// install all APIs
-	_ "github.com/openshift/origin/pkg/api/install"
-	_ "k8s.io/kubernetes/pkg/api/install"
+  // install all APIs
+  _ "github.com/openshift/origin/pkg/api/install"
+  _ "k8s.io/kubernetes/pkg/api/install"
 )
 
 const (
-	// This constant lists all possible options for the node config file in v1
-	// Before modifying this constant, ensure any changes have corresponding issues filed for:
-	// - documentation: https://github.com/openshift/openshift-docs/
-	// - install: https://github.com/openshift/openshift-ansible/
-	expectedSerializedNodeConfig = `allowDisabledDocker: false
+  // This constant lists all possible options for the node config file in v1
+  // Before modifying this constant, ensure any changes have corresponding issues filed for:
+  // - documentation: https://github.com/openshift/openshift-docs/
+  // - install: https://github.com/openshift/openshift-ansible/
+  expectedSerializedNodeConfig = `allowDisabledDocker: false
 apiVersion: v1
 authConfig:
   authenticationCacheSize: 0
@@ -63,12 +63,12 @@ volumeConfig:
 volumeDirectory: ""
 `
 
-	// This constant lists all possible options for the master config file in v1.
-	// It also includes the fields for all the identity provider types.
-	// Before modifying this constant, ensure any changes have corresponding issues filed for:
-	// - documentation: https://github.com/openshift/openshift-docs/
-	// - install: https://github.com/openshift/openshift-ansible/
-	expectedSerializedMasterConfig = `admissionConfig:
+  // This constant lists all possible options for the master config file in v1.
+  // It also includes the fields for all the identity provider types.
+  // Before modifying this constant, ensure any changes have corresponding issues filed for:
+  // - documentation: https://github.com/openshift/openshift-docs/
+  // - install: https://github.com/openshift/openshift-ansible/
+  expectedSerializedMasterConfig = `admissionConfig:
   pluginConfig:
     plugin:
       configuration:
@@ -462,229 +462,229 @@ servingInfo:
 )
 
 func TestSerializeNodeConfig(t *testing.T) {
-	config := &internal.NodeConfig{
-		PodManifestConfig: &internal.PodManifestConfig{},
-	}
-	serializedConfig, err := writeYAML(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(serializedConfig) != expectedSerializedNodeConfig {
-		t.Errorf("Diff:\n-------------\n%s", util.StringDiff(string(serializedConfig), expectedSerializedNodeConfig))
-	}
+  config := &internal.NodeConfig{
+    PodManifestConfig: &internal.PodManifestConfig{},
+  }
+  serializedConfig, err := writeYAML(config)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if string(serializedConfig) != expectedSerializedNodeConfig {
+    t.Errorf("Diff:\n-------------\n%s", diff.StringDiff(string(serializedConfig), expectedSerializedNodeConfig))
+  }
 }
 
 func TestReadNodeConfigLocalVolumeDirQuota(t *testing.T) {
 
-	tests := map[string]struct {
-		config   string
-		expected string
-	}{
-		"null quota": {
-			config: `
+  tests := map[string]struct {
+    config   string
+    expected string
+  }{
+    "null quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
     perFSGroup: null
 `,
-			expected: "",
-		},
-		"missing quota": {
-			config: `
+      expected: "",
+    },
+    "missing quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
 `,
-			expected: "",
-		},
-		"missing localQuota": {
-			config: `
+      expected: "",
+    },
+    "missing localQuota": {
+      config: `
 apiVersion: v1
 volumeConfig:
 `,
-			expected: "",
-		},
-		"missing volumeConfig": {
-			config: `
+      expected: "",
+    },
+    "missing volumeConfig": {
+      config: `
 apiVersion: v1
 `,
-			expected: "",
-		},
-		"no unit (bytes) quota": {
-			config: `
+      expected: "",
+    },
+    "no unit (bytes) quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
     perFSGroup: 200000
 `,
-			expected: "200000",
-		},
-		"Kb quota": {
-			config: `
+      expected: "200000",
+    },
+    "Kb quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
     perFSGroup: 200Ki
 `,
-			expected: "204800",
-		},
-		"Mb quota": {
-			config: `
+      expected: "204800",
+    },
+    "Mb quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
     perFSGroup: 512Mi
 `,
-			expected: "536870912",
-		},
-		"Gb quota": {
-			config: `
+      expected: "536870912",
+    },
+    "Gb quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
     perFSGroup: 2Gi
 `,
-			expected: "2147483648",
-		},
-		"Tb quota": {
-			config: `
+      expected: "2147483648",
+    },
+    "Tb quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
     perFSGroup: 2Ti
 `,
-			expected: "2199023255552",
-		},
-		// This is invalid config, would be caught by validation but just
-		// testing it parses ok:
-		"negative quota": {
-			config: `
+      expected: "2199023255552",
+    },
+    // This is invalid config, would be caught by validation but just
+    // testing it parses ok:
+    "negative quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
     perFSGroup: -512Mi
 `,
-			expected: "-536870912",
-		},
-		"zero quota": {
-			config: `
+      expected: "-536870912",
+    },
+    "zero quota": {
+      config: `
 apiVersion: v1
 volumeConfig:
   localQuota:
     perFSGroup: 0
 `,
-			expected: "0",
-		},
-	}
+      expected: "0",
+    },
+  }
 
-	for name, test := range tests {
-		t.Logf("Running test: %s", name)
-		nodeConfig := &internal.NodeConfig{}
-		if err := latest.ReadYAMLInto([]byte(test.config), nodeConfig); err != nil {
-			t.Errorf("Error reading yaml: %s", err.Error())
-		}
-		if test.expected == "" && nodeConfig.VolumeConfig.LocalQuota.PerFSGroup != nil {
-			t.Errorf("Expected empty quota but got: %s", *nodeConfig.VolumeConfig.LocalQuota.PerFSGroup)
-		}
-		if test.expected != "" {
-			if nodeConfig.VolumeConfig.LocalQuota.PerFSGroup == nil {
-				t.Errorf("Expected quota: %s, got: nil", test.expected)
-			} else {
-				amount := nodeConfig.VolumeConfig.LocalQuota.PerFSGroup.Amount
-				t.Logf("%s", amount.String())
-				rounded := new(inf.Dec)
-				rounded.Round(amount, 0, inf.RoundUp)
-				t.Logf("%s", rounded.String())
-				if test.expected != rounded.String() {
-					t.Errorf("Expected quota: %s, got: %s", test.expected, rounded.String())
-				}
-			}
-		}
-	}
+  for name, test := range tests {
+    t.Logf("Running test: %s", name)
+    nodeConfig := &internal.NodeConfig{}
+    if err := latest.ReadYAMLInto([]byte(test.config), nodeConfig); err != nil {
+      t.Errorf("Error reading yaml: %s", err.Error())
+    }
+    if test.expected == "" && nodeConfig.VolumeConfig.LocalQuota.PerFSGroup != nil {
+      t.Errorf("Expected empty quota but got: %s", *nodeConfig.VolumeConfig.LocalQuota.PerFSGroup)
+    }
+    if test.expected != "" {
+      if nodeConfig.VolumeConfig.LocalQuota.PerFSGroup == nil {
+        t.Errorf("Expected quota: %s, got: nil", test.expected)
+      } else {
+        amount := nodeConfig.VolumeConfig.LocalQuota.PerFSGroup.Amount
+        t.Logf("%s", amount.String())
+        rounded := new(inf.Dec)
+        rounded.Round(amount, 0, inf.RoundUp)
+        t.Logf("%s", rounded.String())
+        if test.expected != rounded.String() {
+          t.Errorf("Expected quota: %s, got: %s", test.expected, rounded.String())
+        }
+      }
+    }
+  }
 }
 
 type AdmissionPluginTestConfig struct {
-	unversioned.TypeMeta
-	Data string `json:"data"`
+  unversioned.TypeMeta
+  Data string `json:"data"`
 }
 
 func (obj *AdmissionPluginTestConfig) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }
 
 func TestMasterConfig(t *testing.T) {
-	internal.Scheme.AddKnownTypes(v1.SchemeGroupVersion, &AdmissionPluginTestConfig{})
-	internal.Scheme.AddKnownTypes(internal.SchemeGroupVersion, &AdmissionPluginTestConfig{})
-	config := &internal.MasterConfig{
-		ServingInfo: internal.HTTPServingInfo{
-			ServingInfo: internal.ServingInfo{
-				NamedCertificates: []internal.NamedCertificate{{}},
-			},
-		},
-		KubernetesMasterConfig: &internal.KubernetesMasterConfig{
-			AdmissionConfig: internal.AdmissionConfig{
-				PluginConfig: map[string]internal.AdmissionPluginConfig{ // test config as an embedded object
-					"plugin": {
-						Configuration: &AdmissionPluginTestConfig{},
-					},
-				},
-				PluginOrderOverride: []string{"plugin"}, // explicitly set this field because it's omitempty
-			},
-		},
-		EtcdConfig: &internal.EtcdConfig{},
-		OAuthConfig: &internal.OAuthConfig{
-			IdentityProviders: []internal.IdentityProvider{
-				{Provider: &internal.BasicAuthPasswordIdentityProvider{}},
-				{Provider: &internal.AllowAllPasswordIdentityProvider{}},
-				{Provider: &internal.DenyAllPasswordIdentityProvider{}},
-				{Provider: &internal.HTPasswdPasswordIdentityProvider{}},
-				{Provider: &internal.LDAPPasswordIdentityProvider{}},
-				{Provider: &internal.LDAPPasswordIdentityProvider{BindPassword: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
-				{Provider: &internal.RequestHeaderIdentityProvider{}},
-				{Provider: &internal.KeystonePasswordIdentityProvider{}},
-				{Provider: &internal.GitHubIdentityProvider{}},
-				{Provider: &internal.GitHubIdentityProvider{ClientSecret: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
-				{Provider: &internal.GitLabIdentityProvider{}},
-				{Provider: &internal.GitLabIdentityProvider{ClientSecret: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
-				{Provider: &internal.GoogleIdentityProvider{}},
-				{Provider: &internal.GoogleIdentityProvider{ClientSecret: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
-				{Provider: &internal.OpenIDIdentityProvider{}},
-				{Provider: &internal.OpenIDIdentityProvider{ClientSecret: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
-			},
-			SessionConfig: &internal.SessionConfig{},
-			Templates:     &internal.OAuthTemplates{},
-		},
-		AssetConfig: &internal.AssetConfig{
-			Extensions: []internal.AssetExtensionsConfig{{}},
-		},
-		DNSConfig: &internal.DNSConfig{},
-		AdmissionConfig: internal.AdmissionConfig{
-			PluginConfig: map[string]internal.AdmissionPluginConfig{ // test config as an embedded object
-				"plugin": {
-					Configuration: &AdmissionPluginTestConfig{},
-				},
-			},
-			PluginOrderOverride: []string{"plugin"}, // explicitly set this field because it's omitempty
-		},
-	}
-	serializedConfig, err := writeYAML(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(serializedConfig) != expectedSerializedMasterConfig {
-		t.Errorf("Diff:\n-------------\n%s", util.StringDiff(string(serializedConfig), expectedSerializedMasterConfig))
-	}
+  internal.Scheme.AddKnownTypes(v1.SchemeGroupVersion, &AdmissionPluginTestConfig{})
+  internal.Scheme.AddKnownTypes(internal.SchemeGroupVersion, &AdmissionPluginTestConfig{})
+  config := &internal.MasterConfig{
+    ServingInfo: internal.HTTPServingInfo{
+      ServingInfo: internal.ServingInfo{
+        NamedCertificates: []internal.NamedCertificate{{}},
+      },
+    },
+    KubernetesMasterConfig: &internal.KubernetesMasterConfig{
+      AdmissionConfig: internal.AdmissionConfig{
+        PluginConfig: map[string]internal.AdmissionPluginConfig{ // test config as an embedded object
+          "plugin": {
+            Configuration: &AdmissionPluginTestConfig{},
+          },
+        },
+        PluginOrderOverride: []string{"plugin"}, // explicitly set this field because it's omitempty
+      },
+    },
+    EtcdConfig: &internal.EtcdConfig{},
+    OAuthConfig: &internal.OAuthConfig{
+      IdentityProviders: []internal.IdentityProvider{
+        {Provider: &internal.BasicAuthPasswordIdentityProvider{}},
+        {Provider: &internal.AllowAllPasswordIdentityProvider{}},
+        {Provider: &internal.DenyAllPasswordIdentityProvider{}},
+        {Provider: &internal.HTPasswdPasswordIdentityProvider{}},
+        {Provider: &internal.LDAPPasswordIdentityProvider{}},
+        {Provider: &internal.LDAPPasswordIdentityProvider{BindPassword: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
+        {Provider: &internal.RequestHeaderIdentityProvider{}},
+        {Provider: &internal.KeystonePasswordIdentityProvider{}},
+        {Provider: &internal.GitHubIdentityProvider{}},
+        {Provider: &internal.GitHubIdentityProvider{ClientSecret: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
+        {Provider: &internal.GitLabIdentityProvider{}},
+        {Provider: &internal.GitLabIdentityProvider{ClientSecret: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
+        {Provider: &internal.GoogleIdentityProvider{}},
+        {Provider: &internal.GoogleIdentityProvider{ClientSecret: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
+        {Provider: &internal.OpenIDIdentityProvider{}},
+        {Provider: &internal.OpenIDIdentityProvider{ClientSecret: internal.StringSource{StringSourceSpec: internal.StringSourceSpec{File: "filename"}}}},
+      },
+      SessionConfig: &internal.SessionConfig{},
+      Templates:     &internal.OAuthTemplates{},
+    },
+    AssetConfig: &internal.AssetConfig{
+      Extensions: []internal.AssetExtensionsConfig{{}},
+    },
+    DNSConfig: &internal.DNSConfig{},
+    AdmissionConfig: internal.AdmissionConfig{
+      PluginConfig: map[string]internal.AdmissionPluginConfig{ // test config as an embedded object
+        "plugin": {
+          Configuration: &AdmissionPluginTestConfig{},
+        },
+      },
+      PluginOrderOverride: []string{"plugin"}, // explicitly set this field because it's omitempty
+    },
+  }
+  serializedConfig, err := writeYAML(config)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if string(serializedConfig) != expectedSerializedMasterConfig {
+    t.Errorf("Diff:\n-------------\n%s", diff.StringDiff(string(serializedConfig), expectedSerializedMasterConfig))
+  }
 
 }
 
 func writeYAML(obj runtime.Object) ([]byte, error) {
 
-	json, err := runtime.Encode(serializer.NewCodecFactory(internal.Scheme).LegacyCodec(v1.SchemeGroupVersion), obj)
-	if err != nil {
-		return nil, err
-	}
+  json, err := runtime.Encode(serializer.NewCodecFactory(internal.Scheme).LegacyCodec(v1.SchemeGroupVersion), obj)
+  if err != nil {
+    return nil, err
+  }
 
-	content, err := yaml.JSONToYAML(json)
-	if err != nil {
-		return nil, err
-	}
-	return content, err
+  content, err := yaml.JSONToYAML(json)
+  if err != nil {
+    return nil, err
+  }
+  return content, err
 }

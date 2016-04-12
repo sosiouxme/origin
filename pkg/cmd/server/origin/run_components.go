@@ -19,7 +19,8 @@ import (
 	"k8s.io/kubernetes/pkg/registry/service/allocator"
 	etcdallocator "k8s.io/kubernetes/pkg/registry/service/allocator/etcd"
 	"k8s.io/kubernetes/pkg/serviceaccount"
-	"k8s.io/kubernetes/pkg/util"
+	kcrypto "k8s.io/kubernetes/pkg/util/crypto"
+	"k8s.io/kubernetes/pkg/util/flowcontrol"
 	utilwait "k8s.io/kubernetes/pkg/util/wait"
 	serviceaccountadmission "k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
 
@@ -114,7 +115,7 @@ func (c *MasterConfig) RunServiceAccountTokensController() {
 		if err != nil {
 			glog.Fatalf("Error reading master ca file for Service Account Token Manager: %s: %v", c.Options.ServiceAccountConfig.MasterCA, err)
 		}
-		if _, err := util.CertsFromPEM(rootCA); err != nil {
+		if _, err := kcrypto.CertsFromPEM(rootCA); err != nil {
 			glog.Fatalf("Error parsing master ca file for Service Account Token Manager: %s: %v", c.Options.ServiceAccountConfig.MasterCA, err)
 		}
 	}
@@ -373,7 +374,7 @@ func (c *MasterConfig) RunImageImportController() {
 		Client:               osclient,
 		ResyncInterval:       10 * time.Minute,
 		MinimumCheckInterval: time.Duration(c.Options.ImagePolicyConfig.ScheduledImageImportMinimumIntervalSeconds) * time.Second,
-		ImportRateLimiter:    util.NewTokenBucketRateLimiter(importRate, importBurst),
+		ImportRateLimiter:    flowcontrol.NewTokenBucketRateLimiter(importRate, importBurst),
 		ScheduleEnabled:      !c.Options.ImagePolicyConfig.DisableScheduledImport,
 	}
 	controller, scheduledController := factory.Create()

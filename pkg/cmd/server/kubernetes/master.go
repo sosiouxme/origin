@@ -36,7 +36,7 @@ import (
 	"k8s.io/kubernetes/pkg/master"
 	quotainstall "k8s.io/kubernetes/pkg/quota/install"
 	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/util"
+	"k8s.io/kubernetes/pkg/util/flowcontrol"
 	"k8s.io/kubernetes/pkg/util/io"
 	utilwait "k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/volume"
@@ -309,8 +309,8 @@ func (c *MasterConfig) RunNodeController() {
 		internalclientset.FromUnversionedClient(c.KubeClient),
 		s.PodEvictionTimeout.Duration,
 
-		util.NewTokenBucketRateLimiter(s.DeletingPodsQps, s.DeletingPodsBurst),
-		util.NewTokenBucketRateLimiter(s.DeletingPodsQps, s.DeletingPodsBurst), // upstream uses the same ones too
+		flowcontrol.NewTokenBucketRateLimiter(s.DeletingPodsQps, s.DeletingPodsBurst),
+		flowcontrol.NewTokenBucketRateLimiter(s.DeletingPodsQps, s.DeletingPodsBurst), // upstream uses the same ones too
 
 		s.NodeMonitorGracePeriod.Duration,
 		s.NodeStartupGracePeriod.Duration,
