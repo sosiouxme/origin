@@ -18,7 +18,9 @@ import (
 
 	appsclient "github.com/openshift/origin/pkg/apps/generated/internalclientset"
 	oauthorizationtypedclient "github.com/openshift/origin/pkg/authorization/generated/internalclientset/typed/authorization/internalversion"
+	buildclient "github.com/openshift/origin/pkg/build/generated/internalclientset"
 	"github.com/openshift/origin/pkg/cmd/util/variable"
+	imagetypedclient "github.com/openshift/origin/pkg/image/generated/internalclientset/typed/image/internalversion"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/log"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/types"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/util"
@@ -32,6 +34,8 @@ type AppCreate struct {
 	PreventModification bool
 	KubeClient          kclientset.Interface
 	ProjectClient       projectclient.ProjectInterface
+	ImageStreamClient   imagetypedclient.ImageStreamsGetter
+	BuildClient         *buildclient.Clientset
 	RouteClient         *routeclient.Clientset
 	RoleBindingClient   oauthorizationtypedclient.RoleBindingsGetter
 	AppsClient          *appsclient.Clientset
@@ -44,10 +48,7 @@ type AppCreate struct {
 	project      string
 	projectBase  string
 	keepProject  bool
-	// run a build and deploy the result if successful
-	checkBuild bool
-	keepBuild  bool
-	// deploy an app, service, and route
+	// deploy a build, app, service, and route
 	appName               string
 	appImage              string
 	appPort               int
@@ -56,11 +57,12 @@ type AppCreate struct {
 	routeHost             string
 	routePort             int
 	routeAdmissionTimeout int64
+	skipBuild             bool // may not expect build to work (e.g. builder not there, registry not in use...)
+	skipRouteTest         bool // may not expect acceptance (e.g. router may not be running)
 	// connection testing parameters
 	httpTimeout        int64
 	httpRetries        int
 	skipServiceConnect bool // service SDN may not be visible from client
-	skipRouteTest      bool // may not expect acceptance (e.g. router may not be running)
 	skipRouteConnect   bool // DNS/network may not be as expected for client to connect to route
 	// misc
 	writeResultDir string
@@ -80,6 +82,7 @@ type appCreateResult struct {
 	TotalDuration jsonDuration `json:"totalDuration"` // interval between BeginTime and EndTime
 	Success       bool         `json:"success"`       // overallresult
 
+	Build   appCreateComponentResult `json:"build"`
 	App     appCreateComponentResult `json:"app"`
 	Service appCreateComponentResult `json:"service"`
 	Route   appCreateComponentResult `json:"route"`
@@ -159,7 +162,6 @@ func (d *AppCreate) Requirements() (client bool, host bool) {
 func NewDefaultAppCreateDiagnostic() *AppCreate {
 	return &AppCreate{
 		projectBase: AppCreateProjectBaseDefault,
-		checkBuild:  true,
 		appName:     AppCreateAppNameDefault,
 		appImage:    getDefaultAppImage(),
 		appPort:     AppCreateAppPortDefault,
@@ -180,6 +182,7 @@ func (d *AppCreate) AvailableParameters() []types.Parameter {
 		{"route-port", "Router port to use for route connection test", &d.routePort, 80},
 		{"deploy-timeout", "Seconds to wait for the app to be ready", &d.deployTimeout, AppCreateTimeoutDefault},
 		{"admission-timeout", "Seconds to wait for the route to be admitted by a router", &d.routeAdmissionTimeout, AppCreateRouteAdmissionTimeoutDefault},
+		{"skip-build", "Do not run a build to deploy with the app", &d.skipBuild, false},
 		{"skip-service-connect", "Do not test connecting to the service", &d.skipServiceConnect, false},
 		{"skip-route-test", "Do not test route at all", &d.skipRouteTest, false},
 		{"skip-route-connect", "Do not test connecting to the route", &d.skipRouteConnect, false},
@@ -267,7 +270,13 @@ func (d *AppCreate) Check() types.DiagnosticResult {
 			d.result.TotalDuration = d.result.EndTime.Sub(d.result.BeginTime)
 			done <- true
 		}()
-		if !d.prepareForApp() || !d.createAndCheckAppDC() || !d.createAndCheckService() {
+		if !d.prepareForApp() {
+			return // without success
+		}
+		if !d.skipBuild {
+			d.createAndTestBuild() // if build create/test fails, proceed anyway using standard image
+		}
+		if !d.createAndCheckAppDC() || !d.createAndCheckService() {
 			return // without success
 			// NOTE: even if we won't try to connect, we still create the service to test for endpoints
 		}

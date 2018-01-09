@@ -13,6 +13,7 @@ import (
 
 	appsclient "github.com/openshift/origin/pkg/apps/generated/internalclientset"
 	oauthorizationclient "github.com/openshift/origin/pkg/authorization/generated/internalclientset"
+	buildclient "github.com/openshift/origin/pkg/build/generated/internalclientset"
 	imageclient "github.com/openshift/origin/pkg/image/generated/internalclientset"
 	oauthclient "github.com/openshift/origin/pkg/oauth/generated/internalclientset"
 	clustdiags "github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/cluster"
@@ -62,33 +63,19 @@ func (o DiagnosticsOptions) buildClusterDiagnostics(rawConfig *clientcmdapi.Conf
 	if err != nil {
 		return nil, err
 	}
-	imageClient, err := imageclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	projectClient, err := projectclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	routeClient, err := routeclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	appsClient, err := appsclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	oauthClient, err := oauthclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	oauthorizationClient, err := oauthorizationclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	securityClient, err := securityclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
+	projectClient, err0 := projectclient.NewForConfig(config)
+	routeClient, err1 := routeclient.NewForConfig(config)
+	imageClient, err2 := imageclient.NewForConfig(config)
+	buildClient, err3 := buildclient.NewForConfig(config)
+	appsClient, err4 := appsclient.NewForConfig(config)
+	oauthClient, err5 := oauthclient.NewForConfig(config)
+	oauthorizationClient, err6 := oauthorizationclient.NewForConfig(config)
+	securityClient, err7 := securityclient.NewForConfig(config)
+	// golang gives us no cleaner way to avoid identical "if" clutter for every one of these:
+	for _, err := range []error{err0, err1, err2, err3, err4, err5, err6, err7} {
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	diagnostics := []types.Diagnostic{}
@@ -105,6 +92,8 @@ func (o DiagnosticsOptions) buildClusterDiagnostics(rawConfig *clientcmdapi.Conf
 			ac.RouteClient = routeClient
 			ac.RoleBindingClient = oauthorizationClient.Authorization()
 			ac.SARClient = kclusterClient.Authorization()
+			ac.ImageStreamClient = imageClient.Image()
+			ac.BuildClient = buildClient
 			ac.AppsClient = appsClient
 			ac.PreventModification = o.PreventModification
 			d = ac

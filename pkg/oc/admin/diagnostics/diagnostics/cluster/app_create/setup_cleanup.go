@@ -10,6 +10,7 @@ import (
 
 	"github.com/openshift/origin/pkg/cmd/server/bootstrappolicy"
 	newproject "github.com/openshift/origin/pkg/oc/admin/project"
+	buildcmd "github.com/openshift/origin/pkg/oc/cli/builds"
 	appscmd "github.com/openshift/origin/pkg/oc/cli/deploymentconfigs"
 )
 
@@ -78,25 +79,26 @@ func (d *AppCreate) cleanup() {
 // not to exist and thus lead to an error on delete. If it turns out that other errors occur that we actually
 // care about then this can be refined.
 func (d *AppCreate) cleanupApp() {
-	errs := []error{}
 	d.out.Debug("DCluAC043", fmt.Sprintf("%s: Deleting components of app '%s' if present.", now(), d.appName))
 
-	// reap the DC's deployments first
-	if err := appscmd.NewDeploymentConfigReaper(d.AppsClient, d.KubeClient).Stop(d.project, d.appName, time.Duration(1)*time.Second, nil); err != nil {
-		errs = append(errs, err)
+	results := []error{
+		// reap the BuildConfig and DeploymentConfig first to ensure their artifacts go away
+		appscmd.NewDeploymentConfigReaper(d.AppsClient, d.KubeClient).Stop(d.project, d.appName, time.Duration(1)*time.Second, nil),
+		buildcmd.NewBuildConfigReaper(d.BuildClient).Stop(d.project, d.appName, time.Duration(1)*time.Second, nil),
+		// then delete the BC, IS, DC, service, and route
+		d.BuildClient.Build().BuildConfigs(d.project).Delete(d.appName, nil),
+		d.ImageStreamClient.ImageStreams(d.project).Delete(d.appName, nil),
+		d.AppsClient.Apps().DeploymentConfigs(d.project).Delete(d.appName, nil),
+		d.KubeClient.Core().Services(d.project).Delete(d.appName, nil),
+		d.RouteClient.Route().Routes(d.project).Delete(d.appName, nil),
 	}
 
-	// then delete the DC, service, and route
-	if err := d.AppsClient.Apps().DeploymentConfigs(d.project).Delete(d.appName, nil); err != nil {
-		errs = append(errs, err)
+	var errs []error
+	for _, err := range results {
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
-	if err := d.KubeClient.Core().Services(d.project).Delete(d.appName, nil); err != nil {
-		errs = append(errs, err)
-	}
-	if err := d.RouteClient.Route().Routes(d.project).Delete(d.appName, nil); err != nil {
-		errs = append(errs, err)
-	}
-
 	if len(errs) > 0 {
 		d.out.Debug("DCluAC044", fmt.Sprintf("%s: Deleting components of app '%s' failed: %v", now(), d.appName, errs))
 	}
