@@ -82,13 +82,13 @@ type appCreateResult struct {
 	TotalDuration jsonDuration `json:"totalDuration"` // interval between BeginTime and EndTime
 	Success       bool         `json:"success"`       // overallresult
 
-	Build   appCreateComponentResult `json:"build"`
-	App     appCreateComponentResult `json:"app"`
-	Service appCreateComponentResult `json:"service"`
-	Route   appCreateComponentResult `json:"route"`
+	Build   componentResult `json:"build"`
+	App     componentResult `json:"app"`
+	Service componentResult `json:"service"`
+	Route   componentResult `json:"route"`
 }
 
-type appCreateComponentResult struct {
+type componentResult struct {
 	BeginTime       jsonTime     `json:"beginTime"`   // begin time for create/test of this component
 	CreatedTime     jsonTime     `json:"createdTime"` // time component creation completed (or failed)
 	CreatedDuration jsonDuration `json:"createdDuration"`
@@ -296,7 +296,7 @@ func (d *AppCreate) Check() types.DiagnosticResult {
 	return d.out
 }
 
-func allSucceeded(components ...*appCreateComponentResult) bool {
+func allSucceeded(components ...*componentResult) bool {
 	for _, comp := range components {
 		if comp.Required && !comp.Success {
 			return false
@@ -313,7 +313,7 @@ func recordTime(at *jsonTime) {
 	*at = jsonTime(time.Now())
 }
 
-func recordTrial(result *appCreateComponentResult) {
+func recordTrial(result *componentResult) {
 	result.EndTime = jsonTime(time.Now())
 	result.TotalDuration = result.EndTime.Sub(result.BeginTime)
 	result.Required = true
