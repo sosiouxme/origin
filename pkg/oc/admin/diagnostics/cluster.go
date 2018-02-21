@@ -13,7 +13,8 @@ import (
 
 	appsclient "github.com/openshift/origin/pkg/apps/generated/internalclientset"
 	oauthorizationclient "github.com/openshift/origin/pkg/authorization/generated/internalclientset"
-	buildclient "github.com/openshift/origin/pkg/build/generated/internalclientset"
+	// buildclient "github.com/openshift/origin/pkg/build/generated/internalclientset/typed/build/internalversion"
+	// buildclient "github.com/openshift/origin/pkg/build/generated/internalclientset"
 	imageclient "github.com/openshift/origin/pkg/image/generated/internalclientset"
 	oauthclient "github.com/openshift/origin/pkg/oauth/generated/internalclientset"
 	clustdiags "github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/cluster"
@@ -66,7 +67,7 @@ func (o DiagnosticsOptions) buildClusterDiagnostics(rawConfig *clientcmdapi.Conf
 	projectClient, err0 := projectclient.NewForConfig(config)
 	routeClient, err1 := routeclient.NewForConfig(config)
 	imageClient, err2 := imageclient.NewForConfig(config)
-	buildClient, err3 := buildclient.NewForConfig(config)
+	buildClient, err3 := o.Factory.OpenshiftInternalBuildClient()
 	appsClient, err4 := appsclient.NewForConfig(config)
 	oauthClient, err5 := oauthclient.NewForConfig(config)
 	oauthorizationClient, err6 := oauthorizationclient.NewForConfig(config)

@@ -76,7 +76,7 @@ func (d *AppCreate) createBuild() bool {
 		return false
 	}
 
-	binaryClient := buildclientinternal.NewBuildInstantiateBinaryClient(d.BuildClient.RESTClient(), d.project)
+	binaryClient := buildclientinternal.NewBuildInstantiateBinaryClient(d.BuildClient.Build().RESTClient(), d.project)
 	bropts := &build.BinaryBuildRequestOptions{
 		ObjectMeta: objectMeta,
 		Message:    "AppCreate diagnostic",

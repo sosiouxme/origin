@@ -19,6 +19,7 @@ import (
 	appsclient "github.com/openshift/origin/pkg/apps/generated/internalclientset"
 	oauthorizationtypedclient "github.com/openshift/origin/pkg/authorization/generated/internalclientset/typed/authorization/internalversion"
 	buildclient "github.com/openshift/origin/pkg/build/generated/internalclientset"
+	//	buildclient "github.com/openshift/origin/pkg/build/generated/internalclientset/typed/build/internalversion"
 	"github.com/openshift/origin/pkg/cmd/util/variable"
 	imagetypedclient "github.com/openshift/origin/pkg/image/generated/internalclientset/typed/image/internalversion"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/log"
@@ -35,12 +36,13 @@ type AppCreate struct {
 	KubeClient          kclientset.Interface
 	ProjectClient       projectclient.ProjectInterface
 	ImageStreamClient   imagetypedclient.ImageStreamsGetter
-	BuildClient         *buildclient.Clientset
-	RouteClient         *routeclient.Clientset
-	RoleBindingClient   oauthorizationtypedclient.RoleBindingsGetter
-	AppsClient          *appsclient.Clientset
-	SARClient           authorizationtypedclient.SelfSubjectAccessReviewsGetter
-	Factory             *osclientcmd.Factory
+	// BuildClient         buildclient.BuildInterface
+	BuildClient       buildclient.Interface
+	RouteClient       *routeclient.Clientset
+	RoleBindingClient oauthorizationtypedclient.RoleBindingsGetter
+	AppsClient        *appsclient.Clientset
+	SARClient         authorizationtypedclient.SelfSubjectAccessReviewsGetter
+	Factory           *osclientcmd.Factory
 
 	// from parameters specific to this diagnostic:
 	// specs for the project where the diagnostic will put all test items
