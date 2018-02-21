@@ -7,8 +7,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	clientdiags "github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/client"
+	networkdiags "github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/client/network"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/client/pod"
-	networkdiags "github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/network"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/types"
 )
 

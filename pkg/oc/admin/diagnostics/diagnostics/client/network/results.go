@@ -17,7 +17,7 @@ import (
 	kerrs "k8s.io/apimachinery/pkg/util/errors"
 	kapi "k8s.io/kubernetes/pkg/apis/core"
 
-	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/networkpod/util"
+	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/client/network/in_pod/util"
 )
 
 func (d *NetworkDiagnostic) CollectNetworkPodLogs() error {
