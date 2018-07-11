@@ -13,7 +13,7 @@
 # this is the version we obsolete up to. The packaging changed for Origin
 # 1.0.6 and OSE 3.1 such that 'openshift' package names were no longer used.
 %global package_refactor_version 3.0.2.900
-%global golang_version 1.9.1
+%global golang_version 1.10
 # %commit and %os_git_vars are intended to be set by tito custom builders provided
 # in the .tito/lib directory. The values in this spec file will not be kept up to date.
 %{!?commit:
@@ -82,6 +82,8 @@ Source0:        https://%{import_path}/archive/%{commit}/%{name}-%{version}.tar.
 BuildRequires:  systemd
 BuildRequires:  bsdtar
 BuildRequires:  golang >= %{golang_version}
+# NOTE 2018-07-11: workaround for downstream go-toolset-7 not Require-ing openssl headers - can remove later
+BuildRequires:  openssl-devel
 BuildRequires:  krb5-devel
 BuildRequires:  rsync
 Requires:       %{name}-clients = %{version}-%{release}
